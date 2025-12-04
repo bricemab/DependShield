@@ -36,17 +36,18 @@ Fichier de référence interne pour l’IA
 ## 3. Backlog (Kanban)
 
 ### TODO
-- [ ] Implémenter la logique de détection des lockfiles.
-- [ ] Mettre en place le système de queue (BullMQ) pour les scans.
+*(Vide)*
 
 ### DOING
-- [ ] Créer le modèle de données User et Project (Checker).
+- [ ] Implémenter la logique de détection des lockfiles.
+- [ ] Mettre en place le système de queue (BullMQ) pour les scans.
 
 ### DONE
 - [x] Initialiser le repository Git et la structure Git Flow (branches main, develop).
 - [x] Bootstrap Frontend : Vue 3, Vite, Tailwind, Pinia, i18n, Router.
 - [x] Configurer l'intégration GitHub OAuth (Backend & Frontend).
 - [x] Bootstrap Backend : NestJS, TypeORM, MySQL, Config, Logger (Winston).
+- [x] Créer le modèle de données User et Project (Checker).
 
 ## 4. Notes importantes
 - Ce fichier doit toujours rester court, clair et entièrement lisible par l’IA au début de chaque session.

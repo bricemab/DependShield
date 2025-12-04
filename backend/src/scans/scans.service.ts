@@ -1,0 +1,226 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Scan, ScanStatus } from './scan.entity';
+import { Vulnerability, VulnerabilitySeverity } from './vulnerability.entity';
+import { ProjectsService } from '../projects/projects.service';
+import { ConfigService } from '@nestjs/config';
+import * as simpleGit from 'simple-git';
+import * as fs from 'fs-extra';
+import * as path from 'path';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
+
+@Injectable()
+export class ScansService {
+    private readonly logger = new Logger(ScansService.name);
+
+    constructor(
+        @InjectRepository(Scan)
+        private scansRepository: Repository<Scan>,
+        @InjectRepository(Vulnerability)
+        private vulnerabilitiesRepository: Repository<Vulnerability>,
+        private projectsService: ProjectsService,
+        private configService: ConfigService,
+    ) { }
+
+    async triggerScan(projectId: number, userId: number): Promise<Scan> {
+        // Verify project ownership
+        const project = await this.projectsService.findOne(projectId, userId);
+
+        // Create scan record
+        const scan = this.scansRepository.create({
+            projectId,
+            status: ScanStatus.PENDING,
+        });
+        await this.scansRepository.save(scan);
+
+        // Execute scan asynchronously (without queue for now)
+        this.executeScan(scan.id).catch((error) => {
+            this.logger.error(`Scan ${scan.id} failed:`, error);
+        });
+
+        return scan;
+    }
+
+    async findAll(projectId: number, userId: number): Promise<Scan[]> {
+        await this.projectsService.findOne(projectId, userId);
+        return this.scansRepository.find({
+            where: { projectId },
+            order: { startedAt: 'DESC' },
+        });
+    }
+
+    async findOne(scanId: number): Promise<Scan> {
+        return this.scansRepository.findOne({
+            where: { id: scanId },
+            relations: ['vulnerabilities'],
+        });
+    }
+
+    private async executeScan(scanId: number): Promise<void> {
+        const scan = await this.scansRepository.findOne({
+            where: { id: scanId },
+            relations: ['project'],
+        });
+
+        if (!scan) {
+            throw new Error(`Scan ${scanId} not found`);
+        }
+
+        try {
+            // Update status to running
+            scan.status = ScanStatus.RUNNING;
+            await this.scansRepository.save(scan);
+
+            const tempDir = this.configService.get<string>('scan.tempDir');
+            const scanDir = path.join(tempDir, `scan-${scanId}`);
+
+            // Ensure temp directory exists
+            await fs.ensureDir(scanDir);
+
+            this.logger.log(`Cloning repository for scan ${scanId}...`);
+
+            // Clone repository
+            const git = simpleGit.default();
+            await git.clone(scan.project.repositoryUrl, scanDir, ['--depth', '1', '--branch', scan.project.branch]);
+
+            this.logger.log(`Running vulnerability scan for scan ${scanId}...`);
+
+            // Run audit based on package manager
+            const auditResult = await this.runAudit(scanDir, scan.project.packageManager);
+
+            // Parse and store vulnerabilities
+            const vulnerabilities = this.parseAuditResult(auditResult, scan.project.packageManager);
+
+            for (const vuln of vulnerabilities) {
+                const vulnerability = this.vulnerabilitiesRepository.create({
+                    ...vuln,
+                    scanId: scan.id,
+                });
+                await this.vulnerabilitiesRepository.save(vulnerability);
+            }
+
+            // Calculate score
+            const score = this.calculateScore(vulnerabilities);
+
+            // Update scan
+            scan.status = ScanStatus.COMPLETED;
+            scan.vulnerabilitiesCount = vulnerabilities.length;
+            scan.score = score;
+            scan.completedAt = new Date();
+            await this.scansRepository.save(scan);
+
+            // Cleanup
+            await fs.remove(scanDir);
+
+            this.logger.log(`Scan ${scanId} completed successfully`);
+        } catch (error) {
+            this.logger.error(`Scan ${scanId} failed:`, error);
+            scan.status = ScanStatus.FAILED;
+            scan.errorMessage = error.message;
+            scan.completedAt = new Date();
+            await this.scansRepository.save(scan);
+        }
+    }
+
+    private async runAudit(dir: string, packageManager: string): Promise<string> {
+        let command: string;
+
+        switch (packageManager) {
+            case 'npm':
+                command = 'npm audit --json';
+                break;
+            case 'yarn':
+                command = 'yarn audit --json';
+                break;
+            case 'pnpm':
+                command = 'pnpm audit --json';
+                break;
+            case 'bun':
+                command = 'bun audit --json';
+                break;
+            default:
+                command = 'npm audit --json';
+        }
+
+        try {
+            const { stdout } = await execAsync(command, { cwd: dir, timeout: 60000 });
+            return stdout;
+        } catch (error) {
+            // npm audit returns non-zero exit code when vulnerabilities are found
+            return error.stdout || '{}';
+        }
+    }
+
+    private parseAuditResult(auditOutput: string, packageManager: string): Partial<Vulnerability>[] {
+        try {
+            const result = JSON.parse(auditOutput);
+            const vulnerabilities: Partial<Vulnerability>[] = [];
+
+            if (packageManager === 'npm') {
+                // Parse npm audit format
+                const advisories = result.vulnerabilities || {};
+                for (const [packageName, data] of Object.entries(advisories as any)) {
+                    vulnerabilities.push({
+                        packageName,
+                        version: data.range || 'unknown',
+                        severity: this.mapSeverity(data.severity),
+                        title: data.title || 'Vulnerability found',
+                        description: data.overview || '',
+                        cve: data.cves?.[0] || null,
+                        url: data.url || null,
+                    });
+                }
+            }
+
+            return vulnerabilities;
+        } catch (error) {
+            this.logger.error('Failed to parse audit result:', error);
+            return [];
+        }
+    }
+
+    private mapSeverity(severity: string): VulnerabilitySeverity {
+        switch (severity?.toLowerCase()) {
+            case 'critical':
+                return VulnerabilitySeverity.CRITICAL;
+            case 'high':
+                return VulnerabilitySeverity.HIGH;
+            case 'moderate':
+            case 'medium':
+                return VulnerabilitySeverity.MODERATE;
+            case 'low':
+            default:
+                return VulnerabilitySeverity.LOW;
+        }
+    }
+
+    private calculateScore(vulnerabilities: Partial<Vulnerability>[]): number {
+        if (vulnerabilities.length === 0) return 100;
+
+        let totalWeight = 0;
+        for (const vuln of vulnerabilities) {
+            switch (vuln.severity) {
+                case VulnerabilitySeverity.CRITICAL:
+                    totalWeight += 10;
+                    break;
+                case VulnerabilitySeverity.HIGH:
+                    totalWeight += 5;
+                    break;
+                case VulnerabilitySeverity.MODERATE:
+                    totalWeight += 2;
+                    break;
+                case VulnerabilitySeverity.LOW:
+                    totalWeight += 1;
+                    break;
+            }
+        }
+
+        // Score from 0 to 100 (100 = no vulnerabilities)
+        const score = Math.max(0, 100 - totalWeight);
+        return Math.round(score * 10) / 10;
+    }
+}

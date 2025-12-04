@@ -6,6 +6,7 @@ import { DatabaseModule } from './database/database.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ProjectsModule } from './projects/projects.module';
+import { ScansModule } from './scans/scans.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -18,6 +19,7 @@ import configuration from './config/configuration';
     UsersModule,
     AuthModule,
     ProjectsModule,
+    ScansModule,
   ],
   controllers: [AppController],
   providers: [AppService],
