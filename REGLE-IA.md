@@ -39,8 +39,7 @@ Fichier de référence interne pour l’IA
 *(Vide)*
 
 ### DOING
-- [ ] Implémenter la logique de détection des lockfiles.
-- [ ] Mettre en place le système de queue (BullMQ) pour les scans.
+*(Vide)*
 
 ### DONE
 - [x] Initialiser le repository Git et la structure Git Flow (branches main, develop).
@@ -48,6 +47,8 @@ Fichier de référence interne pour l’IA
 - [x] Configurer l'intégration GitHub OAuth (Backend & Frontend).
 - [x] Bootstrap Backend : NestJS, TypeORM, MySQL, Config, Logger (Winston).
 - [x] Créer le modèle de données User et Project (Checker).
+- [x] Implémenter la logique de détection des lockfiles.
+- [x] Mettre en place le système de queue (BullMQ) pour les scans.
 
 ## 4. Notes importantes
 - Ce fichier doit toujours rester court, clair et entièrement lisible par l’IA au début de chaque session.

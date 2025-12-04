@@ -23,6 +23,18 @@ const router = createRouter({
             meta: { requiresAuth: true },
         },
         {
+            path: '/projects/:id',
+            name: 'project-detail',
+            component: () => import('../views/ProjectDetailView.vue'),
+            meta: { requiresAuth: true },
+        },
+        {
+            path: '/scans/:id',
+            name: 'scan-detail',
+            component: () => import('../views/ScanDetailView.vue'),
+            meta: { requiresAuth: true },
+        },
+        {
             path: '/login',
             name: 'login',
             component: LoginView,

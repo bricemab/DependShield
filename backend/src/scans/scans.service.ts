@@ -164,14 +164,15 @@ export class ScansService {
                 // Parse npm audit format
                 const advisories = result.vulnerabilities || {};
                 for (const [packageName, data] of Object.entries(advisories as any)) {
+                    const vulnData = data as any; // Type assertion for dynamic audit data
                     vulnerabilities.push({
                         packageName,
-                        version: data.range || 'unknown',
-                        severity: this.mapSeverity(data.severity),
-                        title: data.title || 'Vulnerability found',
-                        description: data.overview || '',
-                        cve: data.cves?.[0] || null,
-                        url: data.url || null,
+                        version: vulnData.range || 'unknown',
+                        severity: this.mapSeverity(vulnData.severity),
+                        title: vulnData.title || 'Vulnerability found',
+                        description: vulnData.overview || '',
+                        cve: vulnData.cves?.[0] || null,
+                        url: vulnData.url || null,
                     });
                 }
             }
