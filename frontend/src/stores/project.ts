@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
-import axios from 'axios';
+import api from '../lib/axios';
 import { useAuthStore } from './auth';
 
 const API_URL = 'http://localhost:3000';
@@ -39,14 +39,10 @@ export const useProjectStore = defineStore('project', () => {
     const branches = ref<Branch[]>([]);
     const loading = ref(false);
 
-    const getHeaders = () => ({
-        headers: { Authorization: `Bearer ${authStore.token.value}` },
-    });
-
     async function fetchProjects() {
         loading.value = true;
         try {
-            const response = await axios.get(`${API_URL}/projects`, getHeaders());
+            const response = await api.get(`${API_URL}/projects`);
             projects.value = response.data;
         } catch (error) {
             console.error('Failed to fetch projects', error);
@@ -58,7 +54,7 @@ export const useProjectStore = defineStore('project', () => {
     async function createProject(projectData: any) {
         loading.value = true;
         try {
-            const response = await axios.post(`${API_URL}/projects`, projectData, getHeaders());
+            const response = await api.post(`${API_URL}/projects`, projectData);
             projects.value.push(response.data);
             return response.data;
         } catch (error) {
@@ -72,7 +68,7 @@ export const useProjectStore = defineStore('project', () => {
     async function deleteProject(id: number) {
         loading.value = true;
         try {
-            await axios.delete(`${API_URL}/projects/${id}`, getHeaders());
+            await api.delete(`${API_URL}/projects/${id}`);
             projects.value = projects.value.filter((p) => p.id !== id);
         } catch (error) {
             console.error('Failed to delete project', error);
@@ -85,7 +81,7 @@ export const useProjectStore = defineStore('project', () => {
     async function fetchRepositories() {
         loading.value = true;
         try {
-            const response = await axios.get(`${API_URL}/projects/github/repositories`, getHeaders());
+            const response = await api.get(`${API_URL}/projects/github/repositories`);
             repositories.value = response.data;
         } catch (error) {
             console.error('Failed to fetch repositories', error);
@@ -98,7 +94,7 @@ export const useProjectStore = defineStore('project', () => {
     async function fetchBranches(owner: string, repo: string) {
         loading.value = true;
         try {
-            const response = await axios.get(`${API_URL}/projects/github/repositories/${owner}/${repo}/branches`, getHeaders());
+            const response = await api.get(`${API_URL}/projects/github/repositories/${owner}/${repo}/branches`);
             branches.value = response.data;
         } catch (error) {
             console.error('Failed to fetch branches', error);
@@ -110,9 +106,8 @@ export const useProjectStore = defineStore('project', () => {
 
     async function detectLockfile(owner: string, repo: string, branch: string): Promise<string | null> {
         try {
-            const response = await axios.get(`${API_URL}/projects/github/detect-lockfile`, {
+            const response = await api.get(`${API_URL}/projects/github/detect-lockfile`, {
                 params: { owner, repo, branch },
-                ...getHeaders(),
             });
             return response.data;
         } catch (error) {
