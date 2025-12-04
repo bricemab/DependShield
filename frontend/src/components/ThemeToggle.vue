@@ -6,18 +6,35 @@ const isDark = ref(false);
 
 onMounted(() => {
   // Check initial theme
-  isDark.value = document.documentElement.classList.contains('dark');
+  const savedTheme = localStorage.getItem('theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  
+  if (savedTheme === 'dark' || (!savedTheme && prefersDark)) {
+    isDark.value = true;
+    document.documentElement.classList.add('dark');
+  } else {
+    isDark.value = false;
+    document.documentElement.classList.remove('dark');
+  }
 });
 
 const toggleDark = () => {
   isDark.value = !isDark.value;
+  
   if (isDark.value) {
     document.documentElement.classList.add('dark');
     localStorage.setItem('theme', 'dark');
+    console.log('Dark mode enabled');
   } else {
     document.documentElement.classList.remove('dark');
     localStorage.setItem('theme', 'light');
+    console.log('Light mode enabled');
   }
+  
+  // Force a repaint
+  document.documentElement.style.display = 'none';
+  document.documentElement.offsetHeight; // Trigger reflow
+  document.documentElement.style.display = '';
 };
 </script>
 

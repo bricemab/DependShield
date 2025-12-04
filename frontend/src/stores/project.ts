@@ -40,7 +40,7 @@ export const useProjectStore = defineStore('project', () => {
     const loading = ref(false);
 
     const getHeaders = () => ({
-        headers: { Authorization: `Bearer ${authStore.token}` },
+        headers: { Authorization: `Bearer ${authStore.token.value}` },
     });
 
     async function fetchProjects() {
