@@ -25,6 +25,10 @@ export class UsersService {
     }
 
     async findOne(id: number): Promise<User | undefined> {
-        return this.usersRepository.findOne({ where: { id } });
+        return this.usersRepository
+            .createQueryBuilder('user')
+            .where('user.id = :id', { id })
+            .addSelect('user.accessToken')
+            .getOne();
     }
 }

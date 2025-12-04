@@ -47,7 +47,16 @@ export class ProjectsService {
     }
 
     async getGithubRepositories(userId: number): Promise<any[]> {
+        console.log('🔍 Fetching GitHub repos for userId:', userId);
         const user = await this.usersService.findOne(userId);
+        console.log('👤 User found:', user ? 'YES' : 'NO');
+        if (user) {
+            console.log('🔑 Access token exists:', user.accessToken ? 'YES' : 'NO');
+            if (user.accessToken) {
+                console.log('🔑 Token length:', user.accessToken.length);
+            }
+        }
+
         if (!user || !user.accessToken) {
             throw new ForbiddenException('GitHub access token not found');
         }
