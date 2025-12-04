@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed } from 'vue';
+import { onMounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
 import { useScanStore } from '../stores/scan';
@@ -45,6 +45,45 @@ const getStatusColor = (status: string) => {
 
 const formatDate = (date: string) => {
   return new Date(date).toLocaleString();
+};
+
+const settingsForm = ref({
+  cronSchedule: '',
+  emailEnabled: false,
+});
+
+const isSettingsLoading = ref(false);
+
+// Initialize form when project is loaded
+const initSettingsForm = () => {
+  if (project.value) {
+    settingsForm.value = {
+      cronSchedule: project.value.cronSchedule || '',
+      emailEnabled: project.value.emailEnabled || false,
+    };
+  }
+};
+
+onMounted(async () => {
+  if (!project.value) {
+    await projectStore.fetchProjects();
+  }
+  await scanStore.fetchScans(projectId.value);
+  initSettingsForm();
+});
+
+const handleUpdateSettings = async () => {
+  if (!project.value) return;
+  
+  isSettingsLoading.value = true;
+  try {
+    await projectStore.updateProject(project.value.id, settingsForm.value);
+    alert('Settings updated successfully');
+  } catch (error) {
+    alert('Failed to update settings');
+  } finally {
+    isSettingsLoading.value = false;
+  }
 };
 </script>
 
@@ -207,6 +246,47 @@ const formatDate = (date: string) => {
                 </tbody>
               </table>
             </div>
+          </CardContent>
+        </Card>
+
+        <!-- Configuration -->
+        <Card class="mt-8">
+          <CardHeader>
+            <CardTitle>Configuration</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <form @submit.prevent="handleUpdateSettings" class="space-y-6 max-w-md">
+              <div class="space-y-2">
+                <label class="text-sm font-medium">Cron Schedule</label>
+                <input
+                  v-model="settingsForm.cronSchedule"
+                  type="text"
+                  placeholder="0 0 * * *"
+                  class="w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <p class="text-xs text-muted-foreground">Daily at midnight: 0 0 * * *</p>
+              </div>
+
+              <div class="flex items-center gap-2">
+                <input
+                  v-model="settingsForm.emailEnabled"
+                  type="checkbox"
+                  id="emailEnabled"
+                  class="w-4 h-4 rounded border-gray-300"
+                />
+                <label for="emailEnabled" class="text-sm">
+                  Enable email notifications
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                :disabled="isSettingsLoading"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 disabled:opacity-50"
+              >
+                {{ isSettingsLoading ? 'Saving...' : 'Save Changes' }}
+              </button>
+            </form>
           </CardContent>
         </Card>
       </div>

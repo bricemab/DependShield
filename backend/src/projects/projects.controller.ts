@@ -1,13 +1,18 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Query } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, Query, Inject, forwardRef } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
+import { SchedulerService } from '../scheduler/scheduler.service';
 
 @Controller('projects')
 @UseGuards(AuthGuard('jwt'))
 export class ProjectsController {
-    constructor(private readonly projectsService: ProjectsService) { }
+    constructor(
+        private readonly projectsService: ProjectsService,
+        @Inject(forwardRef(() => SchedulerService))
+        private readonly schedulerService: SchedulerService,
+    ) { }
 
     @Get()
     findAll(@Req() req) {
@@ -40,17 +45,28 @@ export class ProjectsController {
     }
 
     @Post()
-    create(@Body() createProjectDto: CreateProjectDto, @Req() req) {
-        return this.projectsService.create(createProjectDto, req.user.userId);
+    async create(@Body() createProjectDto: CreateProjectDto, @Req() req) {
+        const project = await this.projectsService.create(createProjectDto, req.user.userId);
+        if (project.cronSchedule) {
+            this.schedulerService.addCronJob(project.id, project.cronSchedule);
+        }
+        return project;
     }
 
     @Patch(':id')
-    update(@Param('id') id: string, @Body() updateProjectDto: UpdateProjectDto, @Req() req) {
-        return this.projectsService.update(+id, updateProjectDto, req.user.userId);
+    async update(@Param('id') id: string, @Body() updateProjectDto: UpdateProjectDto, @Req() req) {
+        const project = await this.projectsService.update(+id, updateProjectDto, req.user.userId);
+        if (project.cronSchedule) {
+            this.schedulerService.addCronJob(project.id, project.cronSchedule);
+        } else {
+            this.schedulerService.removeCronJob(project.id);
+        }
+        return project;
     }
 
     @Delete(':id')
-    remove(@Param('id') id: string, @Req() req) {
-        return this.projectsService.remove(+id, req.user.userId);
+    async remove(@Param('id') id: string, @Req() req) {
+        await this.projectsService.remove(+id, req.user.userId);
+        this.schedulerService.removeCronJob(+id);
     }
 }

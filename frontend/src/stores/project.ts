@@ -78,6 +78,23 @@ export const useProjectStore = defineStore('project', () => {
         }
     }
 
+    async function updateProject(id: number, projectData: any) {
+        loading.value = true;
+        try {
+            const response = await api.patch(`${API_URL}/projects/${id}`, projectData);
+            const index = projects.value.findIndex((p) => p.id === id);
+            if (index !== -1) {
+                projects.value[index] = response.data;
+            }
+            return response.data;
+        } catch (error) {
+            console.error('Failed to update project', error);
+            throw error;
+        } finally {
+            loading.value = false;
+        }
+    }
+
     async function fetchRepositories() {
         loading.value = true;
         try {
@@ -127,5 +144,6 @@ export const useProjectStore = defineStore('project', () => {
         fetchRepositories,
         fetchBranches,
         detectLockfile,
+        updateProject,
     };
 });

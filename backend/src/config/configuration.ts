@@ -26,4 +26,12 @@ export default () => ({
         maxDuration: parseInt(process.env.SCAN_MAX_DURATION, 10) || 300000, // 5 minutes
         tempDir: process.env.SCAN_TEMP_DIR || './temp/scans',
     },
+    email: {
+        host: process.env.EMAIL_HOST || 'smtp.example.com',
+        port: parseInt(process.env.EMAIL_PORT, 10) || 587,
+        secure: process.env.EMAIL_SECURE === 'true',
+        user: process.env.EMAIL_USER || 'user@example.com',
+        password: process.env.EMAIL_PASSWORD || 'password',
+        from: process.env.EMAIL_FROM || '"DependShield" <noreply@dependshield.com>',
+    },
 });

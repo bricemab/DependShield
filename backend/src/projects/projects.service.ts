@@ -27,6 +27,20 @@ export class ProjectsService {
         return project;
     }
 
+    async findOneById(id: number): Promise<Project> {
+        const project = await this.projectsRepository.findOne({ where: { id }, relations: ['user'] });
+        if (!project) {
+            throw new NotFoundException(`Project with ID ${id} not found`);
+        }
+        return project;
+    }
+
+    async findAllWithSchedule(): Promise<Project[]> {
+        return this.projectsRepository.createQueryBuilder('project')
+            .where('project.cronSchedule IS NOT NULL')
+            .getMany();
+    }
+
     async create(createProjectDto: CreateProjectDto, userId: number): Promise<Project> {
         const project = this.projectsRepository.create({
             ...createProjectDto,
