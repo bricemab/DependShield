@@ -36,12 +36,11 @@ Fichier de référence interne pour l’IA
 ## 3. Backlog (Kanban)
 
 ### TODO
-- [ ] Créer le modèle de données User et Project (Checker).
 - [ ] Implémenter la logique de détection des lockfiles.
 - [ ] Mettre en place le système de queue (BullMQ) pour les scans.
 
 ### DOING
-*(Vide)*
+- [ ] Créer le modèle de données User et Project (Checker).
 
 ### DONE
 - [x] Initialiser le repository Git et la structure Git Flow (branches main, develop).

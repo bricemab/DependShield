@@ -8,8 +8,18 @@ const router = createRouter({
     routes: [
         {
             path: '/',
-            name: 'home',
-            component: () => import('../views/HomeView.vue'), // Placeholder for now
+            redirect: '/projects',
+        },
+        {
+            path: '/projects',
+            name: 'projects',
+            component: () => import('../views/ProjectsView.vue'),
+            meta: { requiresAuth: true },
+        },
+        {
+            path: '/projects/create',
+            name: 'create-project',
+            component: () => import('../views/CreateProjectView.vue'),
             meta: { requiresAuth: true },
         },
         {
@@ -25,7 +35,7 @@ const router = createRouter({
     ],
 });
 
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
     const authStore = useAuthStore();
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
         next('/login');

@@ -1,0 +1,31 @@
+import { IsString, IsEnum, IsBoolean, IsOptional, IsNotEmpty } from 'class-validator';
+import { PackageManager } from '../project.entity';
+
+export class CreateProjectDto {
+    @IsString()
+    @IsNotEmpty()
+    name: string;
+
+    @IsString()
+    @IsNotEmpty()
+    repositoryUrl: string;
+
+    @IsString()
+    @IsNotEmpty()
+    repositoryName: string;
+
+    @IsString()
+    @IsNotEmpty()
+    branch: string;
+
+    @IsEnum(PackageManager)
+    packageManager: PackageManager;
+
+    @IsString()
+    @IsOptional()
+    cronSchedule?: string;
+
+    @IsBoolean()
+    @IsOptional()
+    emailEnabled?: boolean;
+}
