@@ -18,7 +18,10 @@
         "of": "sur",
         "results": "résultats",
         "previous": "Précédent",
-        "next": "Suivant"
+        "next": "Suivant",
+        "all": "Tout",
+        "yes": "Oui",
+        "no": "Non"
     },
     "auth": {
         "login_title": "Bon retour",
@@ -76,7 +79,8 @@
         "vulnerable": "Vulnérable",
         "view_advisory": "Voir l'avis",
         "ignore_reason": "Raison pour ignorer cette vulnérabilité (optionnel) :",
-        "confirm_unignore": "Êtes-vous sûr de vouloir arrêter d'ignorer cette vulnérabilité ?"
+        "confirm_unignore": "Êtes-vous sûr de vouloir arrêter d'ignorer cette vulnérabilité ?",
+        "search_placeholder": "Rechercher par nom de paquet..."
     },
     "create_project": {
         "title": "Créer un projet",

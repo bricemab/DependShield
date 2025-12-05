@@ -17,6 +17,7 @@ const scanStore = useScanStore();
 const scanId = computed(() => parseInt(route.params.id as string));
 const selectedSeverity = ref<string>('all');
 const showIgnored = ref(false);
+const searchQuery = ref('');
 
 const lastUpdated = ref(new Date());
 let pollInterval: any = null;
@@ -60,6 +61,11 @@ const filteredVulnerabilities = computed(() => {
   
   if (!showIgnored.value) {
     vulns = vulns.filter(v => !v.whitelisted);
+  }
+
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase();
+    vulns = vulns.filter(v => v.packageName.toLowerCase().includes(query));
   }
 
   if (selectedSeverity.value === 'all') {
@@ -221,43 +227,53 @@ const handleUnignore = async (vuln: any) => {
         </div>
 
         <!-- Filters -->
-        <div class="flex justify-between items-center mb-6">
-          <div class="flex gap-2">
-            <button
-              @click="selectedSeverity = 'all'"
-              :class="selectedSeverity === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'"
-              class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
-            >
-              {{ $t('common.all') }}
-            </button>
-            <button
-              @click="selectedSeverity = 'critical'"
-              :class="selectedSeverity === 'critical' ? 'bg-red-500 text-white' : 'bg-secondary text-secondary-foreground'"
-              class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
-            >
-              {{ $t('scan_detail.severity.critical') }}
-            </button>
-            <button
-              @click="selectedSeverity = 'high'"
-              :class="selectedSeverity === 'high' ? 'bg-orange-500 text-white' : 'bg-secondary text-secondary-foreground'"
-              class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
-            >
-              {{ $t('scan_detail.severity.high') }}
-            </button>
-            <button
-              @click="selectedSeverity = 'moderate'"
-              :class="selectedSeverity === 'moderate' ? 'bg-yellow-500 text-white' : 'bg-secondary text-secondary-foreground'"
-              class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
-            >
-              {{ $t('scan_detail.severity.moderate') }}
-            </button>
-            <button
-              @click="selectedSeverity = 'low'"
-              :class="selectedSeverity === 'low' ? 'bg-blue-500 text-white' : 'bg-secondary text-secondary-foreground'"
-              class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
-            >
-              {{ $t('scan_detail.severity.low') }}
-            </button>
+        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+          <div class="flex flex-1 gap-4 w-full">
+            <div class="relative flex-1 max-w-sm">
+                <input
+                    type="text"
+                    v-model="searchQuery"
+                    :placeholder="$t('scan_detail.search_placeholder')"
+                    class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+            </div>
+            <div class="flex gap-2 overflow-x-auto pb-2 md:pb-0">
+                <button
+                @click="selectedSeverity = 'all'"
+                :class="selectedSeverity === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'"
+                class="px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                {{ $t('common.all') }}
+                </button>
+                <button
+                @click="selectedSeverity = 'critical'"
+                :class="selectedSeverity === 'critical' ? 'bg-red-500 text-white' : 'bg-secondary text-secondary-foreground'"
+                class="px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                {{ $t('scan_detail.severity.critical') }}
+                </button>
+                <button
+                @click="selectedSeverity = 'high'"
+                :class="selectedSeverity === 'high' ? 'bg-orange-500 text-white' : 'bg-secondary text-secondary-foreground'"
+                class="px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                {{ $t('scan_detail.severity.high') }}
+                </button>
+                <button
+                @click="selectedSeverity = 'moderate'"
+                :class="selectedSeverity === 'moderate' ? 'bg-yellow-500 text-white' : 'bg-secondary text-secondary-foreground'"
+                class="px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                {{ $t('scan_detail.severity.moderate') }}
+                </button>
+                <button
+                @click="selectedSeverity = 'low'"
+                :class="selectedSeverity === 'low' ? 'bg-blue-500 text-white' : 'bg-secondary text-secondary-foreground'"
+                class="px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
+                >
+                {{ $t('scan_detail.severity.low') }}
+                </button>
+            </div>
           </div>
 
           <div class="flex items-center gap-2">
@@ -267,7 +283,7 @@ const handleUnignore = async (vuln: any) => {
               v-model="showIgnored"
               class="w-4 h-4 rounded border-gray-300"
             />
-            <label for="showIgnored" class="text-sm font-medium cursor-pointer">
+            <label for="showIgnored" class="text-sm font-medium cursor-pointer whitespace-nowrap">
               {{ $t('scan_detail.show_ignored') }}
             </label>
           </div>

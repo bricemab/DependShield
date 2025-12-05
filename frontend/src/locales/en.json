@@ -18,7 +18,10 @@
         "of": "of",
         "results": "results",
         "previous": "Previous",
-        "next": "Next"
+        "next": "Next",
+        "all": "All",
+        "yes": "Yes",
+        "no": "No"
     },
     "auth": {
         "login_title": "Welcome back",
@@ -76,7 +79,8 @@
         "vulnerable": "Vulnerable",
         "view_advisory": "View Advisory",
         "ignore_reason": "Reason for ignoring this vulnerability (optional):",
-        "confirm_unignore": "Are you sure you want to stop ignoring this vulnerability?"
+        "confirm_unignore": "Are you sure you want to stop ignoring this vulnerability?",
+        "search_placeholder": "Search by package name..."
     },
     "create_project": {
         "title": "Create Project",

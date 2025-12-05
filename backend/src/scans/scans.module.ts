@@ -11,6 +11,7 @@ import { WhitelistController } from './whitelist.controller';
 import { ProjectsModule } from '../projects/projects.module';
 import { ScanProcessor } from './scan.processor';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
     imports: [
@@ -20,6 +21,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
         }),
         forwardRef(() => ProjectsModule),
         NotificationsModule,
+        ConfigModule,
     ],
     controllers: [ScansController, WhitelistController],
     providers: [ScansService, ScanProcessor, WhitelistService],
