@@ -12,6 +12,7 @@ import { ProjectsModule } from '../projects/projects.module';
 import { ScanProcessor } from './scan.processor';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ConfigModule } from '@nestjs/config';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
     imports: [
@@ -22,6 +23,7 @@ import { ConfigModule } from '@nestjs/config';
         forwardRef(() => ProjectsModule),
         NotificationsModule,
         ConfigModule,
+        AuditModule,
     ],
     controllers: [ScansController, WhitelistController],
     providers: [ScansService, ScanProcessor, WhitelistService],

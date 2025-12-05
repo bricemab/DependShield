@@ -11,10 +11,15 @@ import { ProjectsModule } from './projects/projects.module';
 import { ScansModule } from './scans/scans.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SchedulerModule } from './scheduler/scheduler.module';
+
+import { ReportsModule } from './reports/reports.module';
 import configuration from './config/configuration';
+
+import { AuditModule } from './audit/audit.module';
 
 @Module({
   imports: [
+    // ...
     ConfigModule.forRoot({
       isGlobal: true,
       load: [configuration],
@@ -37,6 +42,8 @@ import configuration from './config/configuration';
     ScansModule,
     NotificationsModule,
     SchedulerModule,
+    ReportsModule,
+    AuditModule,
   ],
   controllers: [AppController],
   providers: [AppService],

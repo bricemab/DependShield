@@ -133,10 +133,35 @@ export const useProjectStore = defineStore('project', () => {
         }
     }
 
+    const whitelistRules = ref<any[]>([]);
+
+    async function fetchWhitelistRules(projectId: number) {
+        loading.value = true;
+        try {
+            const response = await api.get(`${API_URL}/projects/${projectId}/whitelist`);
+            whitelistRules.value = response.data;
+        } catch (error) {
+            console.error('Failed to fetch whitelist rules', error);
+        } finally {
+            loading.value = false;
+        }
+    }
+
+    async function deleteWhitelistRule(projectId: number, ruleId: number) {
+        try {
+            await api.delete(`${API_URL}/projects/${projectId}/whitelist/${ruleId}`);
+            whitelistRules.value = whitelistRules.value.filter(r => r.id !== ruleId);
+        } catch (error) {
+            console.error('Failed to delete whitelist rule', error);
+            throw error;
+        }
+    }
+
     return {
         projects,
         repositories,
         branches,
+        whitelistRules,
         loading,
         fetchProjects,
         createProject,
@@ -145,5 +170,7 @@ export const useProjectStore = defineStore('project', () => {
         fetchBranches,
         detectLockfiles,
         updateProject,
+        fetchWhitelistRules,
+        deleteWhitelistRule,
     };
 });

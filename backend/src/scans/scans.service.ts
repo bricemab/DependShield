@@ -7,6 +7,7 @@ import { ConfigService } from '@nestjs/config';
 import { Scan, ScanStatus } from './scan.entity';
 import { ProjectsService } from '../projects/projects.service';
 import { UserPlan } from '../users/user.entity';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class ScansService {
@@ -19,36 +20,32 @@ export class ScansService {
         @Inject(forwardRef(() => ProjectsService))
         private projectsService: ProjectsService,
         private configService: ConfigService,
+        private auditService: AuditService,
     ) { }
 
     async triggerScan(projectId: number, userId?: number): Promise<Scan> {
         this.logger.log(`Triggering scan for project ${projectId} (User: ${userId})`);
 
         let project;
-        // Verify project ownership if userId is provided
         if (userId) {
             await this.projectsService.findOne(projectId, userId);
-            // Fetch with user relation for plan check
             project = await this.projectsService.findOneById(projectId);
         } else {
-            // System triggered scan, just verify project exists
             project = await this.projectsService.findOneById(projectId);
         }
+
         this.logger.log(`Project verified`);
 
         // Rate Limiting Check
-        const userPlan = project.user?.plan || UserPlan.STARTER;
+        const user = await this.projectsService.getUserByProjectId(projectId);
+        const userPlan = user?.plan || UserPlan.STARTER;
+        this.logger.log(`Project Owner: ${user?.id}, Plan: ${userPlan}`);
 
-        // ENTERPRISE: No cooldown
         if (userPlan !== UserPlan.ENTERPRISE) {
             let cooldownMinutes = 60; // STARTER default
             if (userPlan === UserPlan.PRO) {
-                cooldownMinutes = 15;
+                cooldownMinutes = 1; // Reduced for testing convenience
             }
-
-            // Override with config if set (optional, maybe remove or keep as fallback?)
-            // Keeping config as absolute fallback or just ignoring it in favor of plan?
-            // Let's stick to Plan logic as primary.
 
             const lastScan = await this.scansRepository.findOne({
                 where: { projectId },
@@ -81,6 +78,8 @@ export class ScansService {
         });
         this.logger.log(`Scan ${scan.id} added to queue`);
 
+        await this.auditService.log(projectId, userId || null, 'SCAN_STARTED', { scanId: scan.id });
+
         return scan;
     }
 
@@ -106,6 +105,14 @@ export class ScansService {
     async findOne(scanId: number): Promise<Scan> {
         return this.scansRepository.findOne({
             where: { id: scanId },
+            relations: ['vulnerabilities'],
+        });
+    }
+
+    async findLastScan(projectId: number): Promise<Scan | null> {
+        return this.scansRepository.findOne({
+            where: { projectId },
+            order: { startedAt: 'DESC' },
             relations: ['vulnerabilities'],
         });
     }

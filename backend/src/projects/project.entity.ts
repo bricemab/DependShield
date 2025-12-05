@@ -47,6 +47,13 @@ export class Project {
     @Column({ default: false })
     immediateScansEnabled: boolean; // For paid users
 
+    @Column({ type: 'simple-json', nullable: true })
+    qualityGate: {
+        minScore?: number;
+        failOnSeverity?: 'critical' | 'high' | 'moderate' | 'low';
+    };
+
+
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     user: User;
 

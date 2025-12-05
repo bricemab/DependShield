@@ -6,6 +6,7 @@ import { Project } from './project.entity';
 import { UsersModule } from '../users/users.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { SchedulerModule } from '../scheduler/scheduler.module';
+import { AuditModule } from '../audit/audit.module';
 
 @Module({
     imports: [
@@ -13,6 +14,7 @@ import { SchedulerModule } from '../scheduler/scheduler.module';
         UsersModule,
         ProvidersModule,
         forwardRef(() => SchedulerModule),
+        AuditModule,
     ],
     controllers: [ProjectsController],
     providers: [ProjectsService],

@@ -24,6 +24,25 @@ Fichier de référence interne pour l’IA
   - `NotificationsModule` : Emails (SMTP).
 - **Queueing** : BullMQ + Redis pour la gestion asynchrone des scans.
 
+## 3. Backlog (Kanban)
+
+### TODO
+- [ ] Webhooks (Slack/Discord/Teams)
+
+### DOING
+- [ ] Implement Webhooks
+
+### ON HOLD
+- [ ] Support GitLab / Bitbucket
+- [ ] Tests E2E Frontend (Cypress)
+
+### DONE
+- [x] Export des rapports (PDF, CSV)
+- [x] UI Polish: Replace native alerts with Shadcn Sonner.
+- [x] Gate Feature: Monorepo Support (Block non-root lockfiles for Starter).
+- [x] Gate Feature: Whitelist Management (Block whitelist toggle for Starter).
+- [x] Frontend: Visual gating for Whitelist toggle in Vulnerability Detail.
+- [x] Enforce Scan Cooldowns (1h for Starter, 15m for Pro).
 - [x] Gate Email Notifications (Pro+ only).
 - [x] Frontend: Display Plan limits and gate features visually.
 - [x] Abstraction du Provider Git (pour futur GitLab/Bitbucket).

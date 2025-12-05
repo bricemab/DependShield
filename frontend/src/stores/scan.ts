@@ -85,7 +85,29 @@ export const useScanStore = defineStore('scan', () => {
         try {
             const response = await axios.get(`${API_URL}/scans/${scanId}`, getHeaders());
             currentScan.value = response.data;
-            vulnerabilities.value = response.data.vulnerabilities || [];
+
+            // Fetch whitelist rules for this project to map status
+            let whitelistRules: any[] = [];
+            try {
+                if (currentScan.value?.projectId) {
+                    const rulesResponse = await axios.get(`${API_URL}/projects/${currentScan.value.projectId}/whitelist`, getHeaders());
+                    whitelistRules = rulesResponse.data;
+                }
+            } catch (e) {
+                console.error('Failed to fetch whitelist rules', e);
+            }
+
+            const rawVulns = response.data.vulnerabilities || [];
+
+            // Map whitelist status
+            vulnerabilities.value = rawVulns.map((v: any) => {
+                const isWhitelisted = whitelistRules.some((r: any) =>
+                    r.packageName === v.packageName &&
+                    (r.cve === v.cve || (!r.cve && !v.cve))
+                );
+                return { ...v, whitelisted: isWhitelisted };
+            });
+
         } catch (error) {
             console.error('Failed to fetch scan details', error);
         } finally {
@@ -135,6 +157,36 @@ export const useScanStore = defineStore('scan', () => {
         }
     }
 
+    async function downloadReport(projectId: number, format: 'pdf' | 'csv') {
+        const authStore = useAuthStore();
+        try {
+            const response = await axios.get(`${API_URL}/projects/${projectId}/reports/${format}`, {
+                headers: { Authorization: `Bearer ${authStore.token}` },
+                responseType: 'blob',
+            });
+
+            // Trigger download
+            const url = window.URL.createObjectURL(new Blob([response.data]));
+            const link = document.createElement('a');
+            link.href = url;
+            const extension = format;
+            link.setAttribute('download', `report-${projectId}.${extension}`);
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+        } catch (error) {
+            console.error('Error downloading report:', error);
+            throw error;
+        }
+    }
+
+    function reset() {
+        scans.value = [];
+        currentScan.value = null;
+        vulnerabilities.value = [];
+        pagination.value = { page: 1, limit: 10, total: 0, totalPages: 0 };
+    }
+
     return {
         scans,
         currentScan,
@@ -145,6 +197,8 @@ export const useScanStore = defineStore('scan', () => {
         fetchScanDetails,
         ignoreVulnerability,
         unignoreVulnerability,
+        downloadReport,
         pagination,
+        reset,
     };
 });

@@ -8,6 +8,7 @@ import { UsersService } from '../users/users.service';
 import { UserPlan } from '../users/user.entity';
 import { GithubProvider } from '../providers/github/github.provider';
 import { GitProvider } from '../providers/interfaces/git-provider.interface';
+import { AuditService } from '../audit/audit.service';
 
 @Injectable()
 export class ProjectsService {
@@ -17,7 +18,13 @@ export class ProjectsService {
         private usersService: UsersService,
         @Inject(GithubProvider)
         private gitProvider: GitProvider,
+        private auditService: AuditService,
     ) { }
+
+    // ... existing findAll ...
+
+
+
 
     async findAll(userId: number): Promise<Project[]> {
         return this.projectsRepository.find({ where: { userId } });
@@ -37,6 +44,13 @@ export class ProjectsService {
             throw new NotFoundException(`Project with ID ${id} not found`);
         }
         return project;
+    }
+
+    async getUserByProjectId(id: number) {
+        const project = await this.projectsRepository.findOne({ where: { id }, relations: ['user'] });
+        if (!project || !project.user) return null;
+        // Ensure we get the fresh user from UsersService to avoid any stale relation issues
+        return this.usersService.findOne(project.user.id);
     }
 
     async findAllWithSchedule(): Promise<Project[]> {
@@ -126,12 +140,23 @@ export class ProjectsService {
         }
 
         this.projectsRepository.merge(project, updateProjectDto);
-        return this.projectsRepository.save(project);
+        const updated = await this.projectsRepository.save(project);
+        await this.auditService.log(updated.id, userId, 'PROJECT_UPDATED', updateProjectDto);
+        return updated;
     }
 
     async remove(id: number, userId: number): Promise<void> {
         const project = await this.findOne(id, userId);
-        await this.projectsRepository.remove(project);
+        await this.projectsRepository.remove(project); // this removes the ID from project object if typeorm does that? Usually yes.
+        // If we want to log it, we should log BEFORE or keep the ID.
+        // AuditLog has nullable Project relation, so we can log with just projectId even if row is gone.
+        await this.auditService.log(id, userId, 'PROJECT_DELETED', { name: project.name });
+    }
+
+    async getAuditLogs(projectId: number, userId: number) {
+        // Verify ownership
+        await this.findOne(projectId, userId);
+        return this.auditService.findByProject(projectId);
     }
 
     async getGithubRepositories(userId: number): Promise<any[]> {

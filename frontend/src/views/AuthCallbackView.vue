@@ -11,7 +11,7 @@ onMounted(() => {
   const token = route.query.token as string;
   if (token) {
     authStore.setToken(token);
-    // authStore.fetchUser(); // Fetch user details after setting token
+    authStore.fetchUser(); // Fetch user details after setting token
     router.push('/');
   } else {
     router.push('/login');

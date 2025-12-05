@@ -30,11 +30,10 @@ export const useAuthStore = defineStore('auth', () => {
     async function fetchUser() {
         if (!token.value) return;
         try {
-            // TODO: Implement /me endpoint in backend to get user details
-            // const response = await axios.get('http://localhost:3000/users/me', {
-            //   headers: { Authorization: `Bearer ${token.value}` }
-            // });
-            // user.value = response.data;
+            const response = await axios.get('http://localhost:3000/users/me', {
+                headers: { Authorization: `Bearer ${token.value}` }
+            });
+            user.value = response.data;
         } catch (error) {
             console.error('Failed to fetch user', error);
             logout();

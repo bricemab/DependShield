@@ -3,11 +3,11 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useScanStore } from '../stores/scan';
 import { useAuthStore } from '../stores/auth';
-import { ArrowLeft, AlertTriangle, Eye, EyeOff, Crown } from 'lucide-vue-next';
+import { ArrowLeft, Eye, EyeOff, Crown, Download } from 'lucide-vue-next';
+import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
-import CardHeader from '../components/ui/CardHeader.vue';
-import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
+import Dialog from '../components/ui/Dialog.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
 import LanguageSwitcher from '../components/LanguageSwitcher.vue';
 import DashboardLayout from '../layouts/DashboardLayout.vue';
@@ -101,11 +101,26 @@ const severityCounts = computed(() => {
   return counts;
 });
 
-const handleIgnore = async (vuln: any) => {
-  const reason = prompt('Reason for ignoring this vulnerability (optional):');
-  if (reason !== null) {
-    await scanStore.ignoreVulnerability(scanStore.currentScan!.projectId, vuln, reason);
-  }
+const selectedVulnerability = ref<any>(null);
+const ignoreReason = ref('');
+const showIgnoreModal = ref(false);
+
+const openIgnoreModal = (vuln: any) => {
+  selectedVulnerability.value = vuln;
+  ignoreReason.value = '';
+  showIgnoreModal.value = true;
+};
+
+const handleConfirmIgnore = async () => {
+    if (!selectedVulnerability.value) return;
+    
+    try {
+        await scanStore.ignoreVulnerability(scanStore.currentScan!.projectId, selectedVulnerability.value, ignoreReason.value);
+        showIgnoreModal.value = false;
+        selectedVulnerability.value = null;
+    } catch (e) {
+        // toast handled in store
+    }
 };
 
 const handleUnignore = async (vuln: any) => {
@@ -113,216 +128,253 @@ const handleUnignore = async (vuln: any) => {
     await scanStore.unignoreVulnerability(scanStore.currentScan!.projectId, vuln);
   }
 };
+
+const handleExport = async (format: 'pdf' | 'csv') => {
+    try {
+        await scanStore.downloadReport(scanStore.currentScan!.projectId, format);
+        toast.success(`Report exported as ${format.toUpperCase()}`);
+    } catch (e) {
+        toast.error('Failed to export report');
+    }
+};
+import Table from '../components/ui/Table.vue';
+import TableBody from '../components/ui/TableBody.vue';
+import TableCell from '../components/ui/TableCell.vue';
+import TableHead from '../components/ui/TableHead.vue';
+import TableHeader from '../components/ui/TableHeader.vue';
+import TableRow from '../components/ui/TableRow.vue';
+
+// keep existing logic...
 </script>
 
 <template>
   <DashboardLayout>
     <div class="p-8">
-      <!-- Header -->
-      <div class="flex justify-between items-start mb-8">
+      <!-- Header with Breadcrumb-like feel and Actions -->
+      <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <button
+           <button
             @click="router.back()"
-            class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
+            class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-2"
           >
             <ArrowLeft class="w-4 h-4" />
             {{ $t('common.back') }}
           </button>
-          <div class="flex items-center gap-3 mb-2">
-            <h2 class="text-3xl font-bold tracking-tight">{{ $t('scan_detail.title', { id: scanId }) }}</h2>
-            <div v-if="scanStore.currentScan?.status === 'running'" class="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium border border-blue-200">
-              <div class="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-700"></div>
-              {{ $t('project_detail.scanning') }}
-            </div>
-            <div v-else-if="scanStore.currentScan?.status === 'pending'" class="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium border border-gray-200">
-              {{ $t('scan_detail.pending') }}
-            </div>
-            <div v-else-if="scanStore.currentScan?.status === 'failed'" class="px-3 py-1 rounded-full bg-red-100 text-red-700 text-sm font-medium border border-red-200">
-              {{ $t('scan_detail.failed') }}
-            </div>
+          <div class="flex items-center gap-3">
+             <h2 class="text-3xl font-bold tracking-tight">Scan #{{ scanId }}</h2>
+             <span v-if="scanStore.currentScan?.status === 'running'" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                Running
+             </span>
+             <span v-else-if="scanStore.currentScan?.status === 'failed'" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+                Failed
+             </span>
           </div>
-          <p class="text-muted-foreground">
-            {{ $t('scan_detail.security_score') }}: {{ scanStore.currentScan?.score?.toFixed(1) || 'N/A' }}
-            <span class="mx-2">•</span>
-            <span class="text-xs">
-              {{ $t('scan_detail.last_updated') }}: {{ lastUpdated.toLocaleTimeString() }}
-              <span v-if="scanStore.loading" class="ml-2 text-primary animate-pulse">{{ $t('scan_detail.refreshing') }}</span>
-            </span>
+          <p class="text-muted-foreground text-sm mt-1">
+             {{ lastUpdated.toLocaleDateString() }} {{ lastUpdated.toLocaleTimeString() }} • Score: <span class="font-semibold text-foreground">{{ scanStore.currentScan?.score?.toFixed(1) || 'N/A' }}</span>
           </p>
         </div>
-        <div class="flex items-center gap-2">
-          <LanguageSwitcher />
-          <ThemeToggle />
+
+        <div class="flex gap-2">
+            <button 
+                @click="handleExport('pdf')" 
+                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-white border shadow-sm hover:bg-gray-50 transition-colors"
+            >
+                <Download class="w-4 h-4" />
+                Export PDF
+            </button>
+            <button 
+                @click="handleExport('csv')" 
+                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-white border shadow-sm hover:bg-gray-50 transition-colors"
+            >
+                <Download class="w-4 h-4" />
+                Export CSV
+            </button>
         </div>
       </div>
 
-        <!-- Severity Stats -->
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card>
-            <CardContent class="pt-6">
-              <div class="text-center">
-                <div class="text-3xl font-bold text-red-500">{{ severityCounts.critical }}</div>
-                <div class="text-sm text-muted-foreground mt-1">{{ $t('scan_detail.severity.critical') }}</div>
-              </div>
+      <!-- Stats Grid -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <Card class="bg-red-50/50 border-red-100">
+            <CardContent class="p-4 flex flex-col items-center justify-center">
+                <span class="text-2xl font-bold text-red-600">{{ severityCounts.critical }}</span>
+                <span class="text-xs font-medium text-red-600/80 uppercase tracking-wider">Critical</span>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent class="pt-6">
-              <div class="text-center">
-                <div class="text-3xl font-bold text-orange-500">{{ severityCounts.high }}</div>
-                <div class="text-sm text-muted-foreground mt-1">{{ $t('scan_detail.severity.high') }}</div>
-              </div>
+          <Card class="bg-orange-50/50 border-orange-100">
+            <CardContent class="p-4 flex flex-col items-center justify-center">
+                <span class="text-2xl font-bold text-orange-600">{{ severityCounts.high }}</span>
+                <span class="text-xs font-medium text-orange-600/80 uppercase tracking-wider">High</span>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent class="pt-6">
-              <div class="text-center">
-                <div class="text-3xl font-bold text-yellow-500">{{ severityCounts.moderate }}</div>
-                <div class="text-sm text-muted-foreground mt-1">{{ $t('scan_detail.severity.moderate') }}</div>
-              </div>
+          <Card class="bg-yellow-50/50 border-yellow-100">
+            <CardContent class="p-4 flex flex-col items-center justify-center">
+                <span class="text-2xl font-bold text-yellow-600">{{ severityCounts.moderate }}</span>
+                <span class="text-xs font-medium text-yellow-600/80 uppercase tracking-wider">Moderate</span>
             </CardContent>
           </Card>
-          <Card>
-            <CardContent class="pt-6">
-              <div class="text-center">
-                <div class="text-3xl font-bold text-blue-500">{{ severityCounts.low }}</div>
-                <div class="text-sm text-muted-foreground mt-1">{{ $t('scan_detail.severity.low') }}</div>
-              </div>
+           <Card class="bg-blue-50/50 border-blue-100">
+            <CardContent class="p-4 flex flex-col items-center justify-center">
+                <span class="text-2xl font-bold text-blue-600">{{ severityCounts.low }}</span>
+                <span class="text-xs font-medium text-blue-600/80 uppercase tracking-wider">Low</span>
             </CardContent>
           </Card>
-        </div>
+      </div>
 
-        <!-- Filters -->
-        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-          <div class="flex flex-1 gap-4 w-full">
-            <div class="relative flex-1 max-w-sm">
-                <input
-                    type="text"
-                    v-model="searchQuery"
-                    :placeholder="$t('scan_detail.search_placeholder')"
-                    class="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-            </div>
-            <div class="flex gap-2 overflow-x-auto pb-2 md:pb-0">
-                <button
-                @click="selectedSeverity = 'all'"
-                :class="selectedSeverity === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'"
-                class="px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
-                >
-                {{ $t('common.all') }}
-                </button>
-                <button
-                @click="selectedSeverity = 'critical'"
-                :class="selectedSeverity === 'critical' ? 'bg-red-500 text-white' : 'bg-secondary text-secondary-foreground'"
-                class="px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
-                >
-                {{ $t('scan_detail.severity.critical') }}
-                </button>
-                <button
-                @click="selectedSeverity = 'high'"
-                :class="selectedSeverity === 'high' ? 'bg-orange-500 text-white' : 'bg-secondary text-secondary-foreground'"
-                class="px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
-                >
-                {{ $t('scan_detail.severity.high') }}
-                </button>
-                <button
-                @click="selectedSeverity = 'moderate'"
-                :class="selectedSeverity === 'moderate' ? 'bg-yellow-500 text-white' : 'bg-secondary text-secondary-foreground'"
-                class="px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
-                >
-                {{ $t('scan_detail.severity.moderate') }}
-                </button>
-                <button
-                @click="selectedSeverity = 'low'"
-                :class="selectedSeverity === 'low' ? 'bg-blue-500 text-white' : 'bg-secondary text-secondary-foreground'"
-                class="px-4 py-2 rounded-md text-sm font-medium transition-colors whitespace-nowrap"
-                >
-                {{ $t('scan_detail.severity.low') }}
-                </button>
-            </div>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="showIgnored"
-              v-model="showIgnored"
-              class="w-4 h-4 rounded border-gray-300"
+      <!-- Filters & Actions -->
+      <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+          <div class="relative w-full md:w-72">
+             <input
+                type="text"
+                v-model="searchQuery"
+                :placeholder="$t('scan_detail.search_placeholder')"
+                class="w-full pl-3 pr-10 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
-            <label for="showIgnored" class="text-sm font-medium cursor-pointer whitespace-nowrap">
-              {{ $t('scan_detail.show_ignored') }}
-            </label>
+          </div>
+          
+          <div class="flex items-center gap-4">
+             <div class="flex items-center gap-2">
+                <input
+                type="checkbox"
+                id="showIgnored"
+                v-model="showIgnored"
+                class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label for="showIgnored" class="text-sm font-medium cursor-pointer">
+                {{ $t('scan_detail.show_ignored') }}
+                </label>
+            </div>
+             <select v-model="selectedSeverity" class="h-9 rounded-md border text-sm px-3 focus:ring-2 focus:ring-primary/50">
+                <option value="all">All Severities</option>
+                <option value="critical">Critical</option>
+                <option value="high">High</option>
+                <option value="moderate">Moderate</option>
+                <option value="low">Low</option>
+            </select>
+          </div>
+      </div>
+
+      <!-- Data Table -->
+      <div class="rounded-md border bg-card">
+          <Table>
+              <TableHeader>
+                  <TableRow>
+                      <TableHead class="w-[100px]">Severity</TableHead>
+                      <TableHead>Package</TableHead>
+                      <TableHead>Vulnerability</TableHead>
+                      <TableHead class="w-[100px]">Status</TableHead>
+                      <TableHead class="text-right">Actions</TableHead>
+                  </TableRow>
+              </TableHeader>
+              <TableBody>
+                  <TableRow v-for="vuln in filteredVulnerabilities" :key="vuln.id" :class="vuln.whitelisted ? 'opacity-60 bg-muted/50' : ''">
+                      <TableCell>
+                          <span :class="['inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border uppercase', getSeverityColor(vuln.severity)]">
+                              {{ vuln.severity }}
+                          </span>
+                      </TableCell>
+                      <TableCell>
+                          <div class="flex flex-col">
+                              <span class="font-medium">{{ vuln.packageName }}</span>
+                              <span class="text-xs text-muted-foreground">{{ vuln.version }}</span>
+                          </div>
+                      </TableCell>
+                      <TableCell>
+                          <div class="flex flex-col max-w-md">
+                              <span class="font-medium truncate" :title="vuln.title">{{ vuln.title }}</span>
+                              <div class="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                                  <span v-if="vuln.cve">{{ vuln.cve }}</span>
+                                  <a v-if="vuln.url" :href="vuln.url" target="_blank" class="text-primary hover:underline flex items-center gap-1">
+                                      View Advisory
+                                  </a>
+                              </div>
+                          </div>
+                      </TableCell>
+                      <TableCell>
+                          <span v-if="vuln.whitelisted" class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700">
+                              Ignored
+                          </span>
+                          <span v-else class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700">
+                              Active
+                          </span>
+                      </TableCell>
+                      <TableCell class="text-right">
+                           <div class="flex justify-end gap-2">
+                                <button
+                                    v-if="!vuln.whitelisted"
+                                    @click="openIgnoreModal(vuln)"
+                                    :disabled="!canManageWhitelist"
+                                    class="p-2 h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground relative group"
+                                    title="Ignore"
+                                >
+                                    <Crown v-if="!canManageWhitelist" class="w-3 h-3 absolute -top-1 -right-1 text-amber-500" />
+                                    <EyeOff class="w-4 h-4" />
+                                </button>
+                                <button
+                                    v-else
+                                    @click="handleUnignore(vuln)"
+                                    :disabled="!canManageWhitelist"
+                                    class="p-2 h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground relative group"
+                                    title="Un-ignore"
+                                >
+                                    <Crown v-if="!canManageWhitelist" class="w-3 h-3 absolute -top-1 -right-1 text-amber-500" />
+                                    <Eye class="w-4 h-4" />
+                                </button>
+                           </div>
+                      </TableCell>
+                  </TableRow>
+                   <TableRow v-if="filteredVulnerabilities.length === 0">
+                      <TableCell colspan="5" class="h-24 text-center text-muted-foreground">
+                          No vulnerabilities found matching your filters.
+                      </TableCell>
+                  </TableRow>
+              </TableBody>
+          </Table>
+      </div>
+
+    <Dialog
+      :show="showIgnoreModal"
+      title="Ignore Vulnerability"
+      description="This will hide the vulnerability from future scans and reports until you un-ignore it."
+      @close="showIgnoreModal = false"
+    >
+      <div class="space-y-4 py-2">
+        <div class="space-y-2">
+          <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            Package
+          </label>
+          <div class="p-3 rounded-md bg-secondary text-sm font-mono">
+             {{ selectedVulnerability?.packageName }} <span v-if="selectedVulnerability?.cve">({{ selectedVulnerability.cve }})</span>
           </div>
         </div>
 
-        <!-- Vulnerabilities List -->
-        <div class="space-y-4">
-          <Card v-for="vuln in filteredVulnerabilities" :key="vuln.id" :class="vuln.whitelisted ? 'opacity-60' : ''">
-            <CardHeader>
-              <div class="flex items-start justify-between">
-                <div class="flex-1">
-                  <div class="flex items-center gap-2 mb-2">
-                    <AlertTriangle class="w-5 h-5 text-destructive" />
-                    <CardTitle class="text-lg">{{ vuln.packageName }}</CardTitle>
-                    <span :class="getSeverityColor(vuln.severity)" class="px-2 py-1 rounded-md text-xs font-medium border uppercase">
-                      {{ vuln.severity }}
-                    </span>
-                    <span v-if="vuln.whitelisted" class="px-2 py-1 rounded-md text-xs font-medium bg-gray-200 text-gray-700 border border-gray-300 uppercase">
-                      Ignored
-                    </span>
-                  </div>
-                  <p class="text-sm text-muted-foreground">{{ vuln.title }}</p>
-                </div>
-                <div>
-                  <button
-                    v-if="!vuln.whitelisted"
-                    @click="handleIgnore(vuln)"
-                    :disabled="!canManageWhitelist"
-                    :class="!canManageWhitelist ? 'opacity-50 cursor-not-allowed' : 'hover:bg-secondary hover:text-foreground'"
-                    class="p-2 rounded-md transition-colors text-muted-foreground relative group"
-                    title="Ignore this vulnerability"
-                  >
-                    <Crown v-if="!canManageWhitelist" class="w-3 h-3 absolute -top-1 -right-1 text-amber-500" />
-                    <EyeOff class="w-4 h-4" />
-                  </button>
-                  <button
-                    v-else
-                    @click="handleUnignore(vuln)"
-                    :disabled="!canManageWhitelist"
-                    :class="!canManageWhitelist ? 'opacity-50 cursor-not-allowed' : 'hover:bg-secondary hover:text-foreground'"
-                    class="p-2 rounded-md transition-colors text-muted-foreground group relative"
-                    title="Un-ignore this vulnerability"
-                  >
-                    <Crown v-if="!canManageWhitelist" class="w-3 h-3 absolute -top-1 -right-1 text-amber-500" />
-                    <Eye class="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div class="space-y-2 text-sm">
-                <div class="flex gap-2">
-                  <span class="text-muted-foreground">{{ $t('scan_detail.vulnerable') }}:</span>
-                  <span class="font-mono">{{ vuln.version }}</span>
-                </div>
-                <div v-if="vuln.cve" class="flex gap-2">
-                  <span class="text-muted-foreground">CVE:</span>
-                  <span>{{ vuln.cve }}</span>
-                </div>
-                <div v-if="vuln.url" class="mt-2">
-                  <a :href="vuln.url" target="_blank" class="text-primary hover:underline text-sm">
-                    {{ $t('scan_detail.view_advisory') }} →
-                  </a>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div v-if="filteredVulnerabilities.length === 0" class="text-center py-12">
-            <p class="text-muted-foreground">{{ $t('scan_detail.no_vulnerabilities') }}</p>
-          </div>
+         <div class="space-y-2">
+          <label for="reason" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            Reason (Optional)
+          </label>
+          <textarea
+            id="reason"
+            v-model="ignoreReason"
+            placeholder="e.g. False positive, Mitigation in place..."
+            class="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          ></textarea>
         </div>
       </div>
 
+      <template #footer>
+        <button
+          @click="showIgnoreModal = false"
+          class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10 px-4 py-2 hover:bg-secondary text-secondary-foreground"
+        >
+          Cancel
+        </button>
+        <button
+          @click="handleConfirmIgnore"
+          class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          Confirm & Ignore
+        </button>
+      </template>
+    </Dialog>
+    </div>
   </DashboardLayout>
 </template>
