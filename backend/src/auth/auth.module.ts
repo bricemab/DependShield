@@ -7,11 +7,13 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { GithubStrategy } from './strategies/github.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthController } from './auth.controller';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
     imports: [
         UsersModule,
         PassportModule,
+        NotificationsModule,
         JwtModule.registerAsync({
             imports: [ConfigModule],
             inject: [ConfigService],

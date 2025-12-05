@@ -8,8 +8,6 @@ import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
 import CardContent from '../components/ui/CardContent.vue';
 import Dialog from '../components/ui/Dialog.vue';
-import ThemeToggle from '../components/ThemeToggle.vue';
-import LanguageSwitcher from '../components/LanguageSwitcher.vue';
 import DashboardLayout from '../layouts/DashboardLayout.vue';
 
 const route = useRoute();
@@ -177,14 +175,14 @@ import TableRow from '../components/ui/TableRow.vue';
         <div class="flex gap-2">
             <button 
                 @click="handleExport('pdf')" 
-                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-white border shadow-sm hover:bg-gray-50 transition-colors"
+                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-background border border-input shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors"
             >
                 <Download class="w-4 h-4" />
                 Export PDF
             </button>
             <button 
                 @click="handleExport('csv')" 
-                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-white border shadow-sm hover:bg-gray-50 transition-colors"
+                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-background border border-input shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors"
             >
                 <Download class="w-4 h-4" />
                 Export CSV
@@ -194,28 +192,28 @@ import TableRow from '../components/ui/TableRow.vue';
 
       <!-- Stats Grid -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <Card class="bg-red-50/50 border-red-100">
+          <Card class="bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-900/50">
             <CardContent class="p-4 flex flex-col items-center justify-center">
-                <span class="text-2xl font-bold text-red-600">{{ severityCounts.critical }}</span>
-                <span class="text-xs font-medium text-red-600/80 uppercase tracking-wider">Critical</span>
+                <span class="text-2xl font-bold text-red-600 dark:text-red-400">{{ severityCounts.critical }}</span>
+                <span class="text-xs font-medium text-red-600/80 dark:text-red-400/80 uppercase tracking-wider">Critical</span>
             </CardContent>
           </Card>
-          <Card class="bg-orange-50/50 border-orange-100">
+          <Card class="bg-orange-50/50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-900/50">
             <CardContent class="p-4 flex flex-col items-center justify-center">
-                <span class="text-2xl font-bold text-orange-600">{{ severityCounts.high }}</span>
-                <span class="text-xs font-medium text-orange-600/80 uppercase tracking-wider">High</span>
+                <span class="text-2xl font-bold text-orange-600 dark:text-orange-400">{{ severityCounts.high }}</span>
+                <span class="text-xs font-medium text-orange-600/80 dark:text-orange-400/80 uppercase tracking-wider">High</span>
             </CardContent>
           </Card>
-          <Card class="bg-yellow-50/50 border-yellow-100">
+          <Card class="bg-yellow-50/50 dark:bg-yellow-900/10 border-yellow-100 dark:border-yellow-900/50">
             <CardContent class="p-4 flex flex-col items-center justify-center">
-                <span class="text-2xl font-bold text-yellow-600">{{ severityCounts.moderate }}</span>
-                <span class="text-xs font-medium text-yellow-600/80 uppercase tracking-wider">Moderate</span>
+                <span class="text-2xl font-bold text-yellow-600 dark:text-yellow-400">{{ severityCounts.moderate }}</span>
+                <span class="text-xs font-medium text-yellow-600/80 dark:text-yellow-400/80 uppercase tracking-wider">Moderate</span>
             </CardContent>
           </Card>
-           <Card class="bg-blue-50/50 border-blue-100">
+           <Card class="bg-blue-50/50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/50">
             <CardContent class="p-4 flex flex-col items-center justify-center">
-                <span class="text-2xl font-bold text-blue-600">{{ severityCounts.low }}</span>
-                <span class="text-xs font-medium text-blue-600/80 uppercase tracking-wider">Low</span>
+                <span class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ severityCounts.low }}</span>
+                <span class="text-xs font-medium text-blue-600/80 dark:text-blue-400/80 uppercase tracking-wider">Low</span>
             </CardContent>
           </Card>
       </div>
@@ -227,7 +225,7 @@ import TableRow from '../components/ui/TableRow.vue';
                 type="text"
                 v-model="searchQuery"
                 :placeholder="$t('scan_detail.search_placeholder')"
-                class="w-full pl-3 pr-10 py-2 border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                class="w-full pl-3 pr-10 py-2 border rounded-md text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary/50"
             />
           </div>
           
@@ -237,13 +235,13 @@ import TableRow from '../components/ui/TableRow.vue';
                 type="checkbox"
                 id="showIgnored"
                 v-model="showIgnored"
-                class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary"
+                class="w-4 h-4 rounded border-gray-300 text-primary focus:ring-primary bg-background"
                 />
                 <label for="showIgnored" class="text-sm font-medium cursor-pointer">
                 {{ $t('scan_detail.show_ignored') }}
                 </label>
             </div>
-             <select v-model="selectedSeverity" class="h-9 rounded-md border text-sm px-3 focus:ring-2 focus:ring-primary/50">
+             <select v-model="selectedSeverity" class="h-9 rounded-md border bg-background text-sm px-3 focus:ring-2 focus:ring-primary/50">
                 <option value="all">All Severities</option>
                 <option value="critical">Critical</option>
                 <option value="high">High</option>

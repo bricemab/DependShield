@@ -2,26 +2,15 @@
 import { FolderGit2, LayoutDashboard, ShieldAlert, Settings, BookOpen } from 'lucide-vue-next';
 import LanguageSwitcher from './LanguageSwitcher.vue';
 import ThemeToggle from './ThemeToggle.vue';
-import { useAuthStore } from '../stores/auth';
-
-const authStore = useAuthStore();
 </script>
 
 <template>
   <aside class="w-64 border-r bg-card flex flex-col h-screen sticky top-0">
     <!-- Logo -->
     <div class="p-6 border-b">
-      <div class="flex items-center gap-2">
-        <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-          <FolderGit2 class="w-5 h-5 text-primary-foreground" />
-        </div>
-        <div>
-          <h1 class="text-lg font-bold">DependShield</h1>
-          <p class="text-xs text-muted-foreground">Vulnerability Scanner</p>
-          <span v-if="authStore.user" class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary mt-1 inline-block">
-            {{ authStore.user.plan }} PLAN
-          </span>
-        </div>
+      <div class="flex flex-col items-center justify-center text-center">
+        <img src="/logo.png" alt="DependShield" class="h-12 mb-2" />
+        <p class="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Vulnerability Scanner</p>
       </div>
     </div>
 
@@ -40,7 +29,7 @@ const authStore = useAuthStore();
         <router-link
           to="/projects"
           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-          :class="{ 'bg-accent text-accent-foreground': $route.path.startsWith('/projects') || $route.path.startsWith('/scans') }"
+          active-class="bg-accent text-accent-foreground"
         >
           <FolderGit2 class="w-4 h-4" />
           {{ $t('projects.title') }}
