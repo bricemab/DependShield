@@ -8,7 +8,13 @@ const router = createRouter({
     routes: [
         {
             path: '/',
-            redirect: '/projects',
+            redirect: '/dashboard',
+        },
+        {
+            path: '/dashboard',
+            name: 'dashboard',
+            component: () => import('../views/DashboardView.vue'),
+            meta: { requiresAuth: true },
         },
         {
             path: '/projects',
@@ -26,6 +32,18 @@ const router = createRouter({
             path: '/projects/:id',
             name: 'project-detail',
             component: () => import('../views/ProjectDetailView.vue'),
+            meta: { requiresAuth: true },
+        },
+        {
+            path: '/vulnerabilities',
+            name: 'vulnerabilities',
+            component: () => import('../views/VulnerabilitiesView.vue'),
+            meta: { requiresAuth: true },
+        },
+        {
+            path: '/settings',
+            name: 'settings',
+            component: () => import('../views/SettingsView.vue'),
             meta: { requiresAuth: true },
         },
         {

@@ -8,6 +8,7 @@ Suite à l'analyse du code et des fonctionnalités actuelles, voici une liste de
 - **Graphiques d'Évolution** : Ajouter des graphiques (via `Chart.js` ou `Recharts`) sur le dashboard pour montrer l'évolution du score de sécurité dans le temps.
 - **Répartition par Sévérité** : Un diagramme circulaire (Donut chart) montrant la proportion de vulnérabilités Critical/High/Moderate/Low.
 - **Top Vulnérabilités** : Un widget listant les vulnérabilités les plus fréquentes sur l'ensemble des projets.
+- **Emails** : Amélioration des emails envoyés aux clients avec un template par défaut
 
 ### Navigation & Ergonomie
 - **Vue "Dépendances" Globale** : Une nouvelle page permettant de rechercher un package (ex: `lodash`) pour voir instantanément quels projets l'utilisent et dans quelle version. Très utile en cas de Zero-Day.
@@ -28,6 +29,7 @@ Suite à l'analyse du code et des fonctionnalités actuelles, voici une liste de
 - **Support Dockerfile** : Scanner les images Docker construites ou les Dockerfiles pour les failles système.
 
 ### Automatisation & "Self-Healing"
+- **Email Welcome** : Envoie d'un email de bienvenue lors de la première connexion de l'utilisateur.
 - **Auto-Fix (Pull Requests)** : À la manière de Dependabot/Renovate, proposer un bouton "Create Fix PR" qui crée automatiquement une branche, met à jour le package dans `package.json` et ouvre une PR sur GitHub.
 - **Politiques de Sécurité (Policy as Code)** : Définir des règles globales (ex: "Aucun projet ne doit avoir de faille CRITICAL plus de 7 jours") et alerter si non respecté.
 

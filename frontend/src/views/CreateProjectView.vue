@@ -1,14 +1,14 @@
-<script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
-import { FolderGit2, ArrowLeft, Check, Search, Lock, Globe, GitBranch } from 'lucide-vue-next';
+import { ArrowLeft, Check, Search, Lock, Globe, GitBranch } from 'lucide-vue-next';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
 import LanguageSwitcher from '../components/LanguageSwitcher.vue';
+import DashboardLayout from '../layouts/DashboardLayout.vue';
 
 const router = useRouter();
 const projectStore = useProjectStore();
@@ -85,6 +85,7 @@ const selectBranch = async (branchName: string) => {
   if (parts.length < 2) return;
   const owner = parts[0];
   const repoName = parts[1];
+  if (!owner || !repoName) return;
   const lockfiles = await projectStore.detectLockfiles(owner, repoName, branchName);
   
   detectedLockfiles.value = lockfiles;
@@ -122,60 +123,19 @@ const goBack = () => {
 </script>
 
 <template>
-  <div class="flex h-screen bg-background">
-    <!-- Sidebar -->
-    <aside class="w-64 border-r bg-card flex flex-col">
-      <div class="p-6 border-b">
+  <DashboardLayout>
+    <div class="p-8">
+      <!-- Header -->
+      <div class="flex justify-between items-center mb-8">
+        <div>
+          <h2 class="text-3xl font-bold tracking-tight">{{ $t('create_project.title') }}</h2>
+          <p class="text-muted-foreground mt-1">Step {{ step }} of 4</p>
+        </div>
         <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <FolderGit2 class="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 class="text-lg font-bold">DependShield</h1>
-            <p class="text-xs text-muted-foreground">Vulnerability Scanner</p>
-          </div>
+          <LanguageSwitcher />
+          <ThemeToggle />
         </div>
       </div>
-
-      <nav class="flex-1 p-4">
-        <div class="space-y-1">
-          <router-link
-            to="/projects"
-            class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-          >
-            <FolderGit2 class="w-4 h-4" />
-            {{ $t('projects.title') }}
-          </router-link>
-        </div>
-      </nav>
-
-      <div class="p-4 border-t">
-        <button
-          @click="$router.push('/login')"
-          class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          {{ $t('common.logout') }}
-        </button>
-      </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="flex-1 overflow-auto">
-      <div class="p-8">
-        <!-- Header -->
-        <div class="flex justify-between items-center mb-8">
-          <div>
-            <h2 class="text-3xl font-bold tracking-tight">{{ $t('create_project.title') }}</h2>
-            <p class="text-muted-foreground mt-1">Step {{ step }} of 4</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <LanguageSwitcher />
-            <ThemeToggle />
-          </div>
-        </div>
 
         <!-- Progress -->
         <div class="flex items-center gap-4 mb-8">
@@ -454,5 +414,5 @@ const goBack = () => {
         </Card>
       </div>
     </main>
-  </div>
+  </DashboardLayout>
 </template>

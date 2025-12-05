@@ -3,13 +3,14 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
 import { useScanStore } from '../stores/scan';
-import { FolderGit2, Play, ArrowLeft, FileText, Shield, Package2, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { Play, ArrowLeft, FileText, Shield, Package2, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
 import LanguageSwitcher from '../components/LanguageSwitcher.vue';
+import DashboardLayout from '../layouts/DashboardLayout.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -127,76 +128,35 @@ const handleUpdateSettings = async () => {
 </script>
 
 <template>
-  <div class="flex h-screen bg-background">
-    <!-- Sidebar -->
-    <aside class="w-64 border-r bg-card flex flex-col">
-      <div class="p-6 border-b">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <FolderGit2 class="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 class="text-lg font-bold">DependShield</h1>
-            <p class="text-xs text-muted-foreground">Vulnerability Scanner</p>
-          </div>
-        </div>
-      </div>
-
-      <nav class="flex-1 p-4">
-        <div class="space-y-1">
-          <router-link
-            to="/projects"
-            class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+  <DashboardLayout>
+    <div class="p-8">
+      <!-- Header -->
+      <div class="flex justify-between items-start mb-8">
+        <div>
+          <button
+            @click="router.push('/projects')"
+            class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
           >
-            <FolderGit2 class="w-4 h-4" />
-            {{ $t('projects.title') }}
-          </router-link>
+            <ArrowLeft class="w-4 h-4" />
+            {{ $t('project_detail.back_to_projects') }}
+          </button>
+          <h2 class="text-3xl font-bold tracking-tight mb-2">{{ project?.name }}</h2>
+          <p class="text-muted-foreground">{{ project?.repositoryName }} • {{ project?.branch }}</p>
         </div>
-      </nav>
-
-      <div class="p-4 border-t">
-        <button
-          @click="$router.push('/login')"
-          class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          {{ $t('common.logout') }}
-        </button>
+        <div class="flex items-center gap-2">
+          <LanguageSwitcher />
+          <ThemeToggle />
+          <button
+            @click="handleTriggerScan"
+            :disabled="scanStore.loading"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 gap-2 disabled:opacity-50"
+          >
+            <Play v-if="!scanStore.loading" class="w-4 h-4" />
+            <div v-else class="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground"></div>
+            {{ scanStore.loading ? $t('project_detail.scanning') : $t('project_detail.run_scan') }}
+          </button>
+        </div>
       </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="flex-1 overflow-auto">
-      <div class="p-8">
-        <!-- Header -->
-        <div class="flex justify-between items-start mb-8">
-          <div>
-            <button
-              @click="router.push('/projects')"
-              class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
-            >
-              <ArrowLeft class="w-4 h-4" />
-              {{ $t('project_detail.back_to_projects') }}
-            </button>
-            <h2 class="text-3xl font-bold tracking-tight mb-2">{{ project?.name }}</h2>
-            <p class="text-muted-foreground">{{ project?.repositoryName }} • {{ project?.branch }}</p>
-          </div>
-          <div class="flex items-center gap-2">
-            <LanguageSwitcher />
-            <ThemeToggle />
-            <button
-              @click="handleTriggerScan"
-              :disabled="scanStore.loading"
-              class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 gap-2 disabled:opacity-50"
-            >
-              <Play v-if="!scanStore.loading" class="w-4 h-4" />
-              <div v-else class="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground"></div>
-              {{ scanStore.loading ? $t('project_detail.scanning') : $t('project_detail.run_scan') }}
-            </button>
-          </div>
-        </div>
 
         <!-- Stats Cards -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
@@ -365,5 +325,5 @@ const handleUpdateSettings = async () => {
         </Card>
       </div>
     </main>
-  </div>
+  </DashboardLayout>
 </template>

@@ -2,13 +2,14 @@
 import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useScanStore } from '../stores/scan';
-import { FolderGit2, ArrowLeft, AlertTriangle, Eye, EyeOff } from 'lucide-vue-next';
+import { ArrowLeft, AlertTriangle, Eye, EyeOff } from 'lucide-vue-next';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
 import LanguageSwitcher from '../components/LanguageSwitcher.vue';
+import DashboardLayout from '../layouts/DashboardLayout.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -109,86 +110,45 @@ const handleUnignore = async (vuln: any) => {
 </script>
 
 <template>
-  <div class="flex h-screen bg-background">
-    <!-- Sidebar -->
-    <aside class="w-64 border-r bg-card flex flex-col">
-      <div class="p-6 border-b">
-        <div class="flex items-center gap-2">
-          <div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <FolderGit2 class="w-5 h-5 text-primary-foreground" />
-          </div>
-          <div>
-            <h1 class="text-lg font-bold">DependShield</h1>
-            <p class="text-xs text-muted-foreground">Vulnerability Scanner</p>
-          </div>
-        </div>
-      </div>
-
-      <nav class="flex-1 p-4">
-        <div class="space-y-1">
-          <router-link
-            to="/projects"
-            class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+  <DashboardLayout>
+    <div class="p-8">
+      <!-- Header -->
+      <div class="flex justify-between items-start mb-8">
+        <div>
+          <button
+            @click="router.back()"
+            class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
           >
-            <FolderGit2 class="w-4 h-4" />
-            {{ $t('projects.title') }}
-          </router-link>
-        </div>
-      </nav>
-
-      <div class="p-4 border-t">
-        <button
-          @click="$router.push('/login')"
-          class="w-full flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-        >
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          {{ $t('common.logout') }}
-        </button>
-      </div>
-    </aside>
-
-    <!-- Main Content -->
-    <main class="flex-1 overflow-auto">
-      <div class="p-8">
-        <!-- Header -->
-        <div class="flex justify-between items-start mb-8">
-          <div>
-            <button
-              @click="router.back()"
-              class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
-            >
-              <ArrowLeft class="w-4 h-4" />
-              {{ $t('common.back') }}
-            </button>
-            <div class="flex items-center gap-3 mb-2">
-              <h2 class="text-3xl font-bold tracking-tight">{{ $t('scan_detail.title', { id: scanId }) }}</h2>
-              <div v-if="scanStore.currentScan?.status === 'running'" class="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium border border-blue-200">
-                <div class="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-700"></div>
-                {{ $t('project_detail.scanning') }}
-              </div>
-              <div v-else-if="scanStore.currentScan?.status === 'pending'" class="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium border border-gray-200">
-                {{ $t('scan_detail.pending') }}
-              </div>
-              <div v-else-if="scanStore.currentScan?.status === 'failed'" class="px-3 py-1 rounded-full bg-red-100 text-red-700 text-sm font-medium border border-red-200">
-                {{ $t('scan_detail.failed') }}
-              </div>
+            <ArrowLeft class="w-4 h-4" />
+            {{ $t('common.back') }}
+          </button>
+          <div class="flex items-center gap-3 mb-2">
+            <h2 class="text-3xl font-bold tracking-tight">{{ $t('scan_detail.title', { id: scanId }) }}</h2>
+            <div v-if="scanStore.currentScan?.status === 'running'" class="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium border border-blue-200">
+              <div class="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-700"></div>
+              {{ $t('project_detail.scanning') }}
             </div>
-            <p class="text-muted-foreground">
-              {{ $t('scan_detail.security_score') }}: {{ scanStore.currentScan?.score?.toFixed(1) || 'N/A' }}
-              <span class="mx-2">•</span>
-              <span class="text-xs">
-                {{ $t('scan_detail.last_updated') }}: {{ lastUpdated.toLocaleTimeString() }}
-                <span v-if="scanStore.loading" class="ml-2 text-primary animate-pulse">{{ $t('scan_detail.refreshing') }}</span>
-              </span>
-            </p>
+            <div v-else-if="scanStore.currentScan?.status === 'pending'" class="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium border border-gray-200">
+              {{ $t('scan_detail.pending') }}
+            </div>
+            <div v-else-if="scanStore.currentScan?.status === 'failed'" class="px-3 py-1 rounded-full bg-red-100 text-red-700 text-sm font-medium border border-red-200">
+              {{ $t('scan_detail.failed') }}
+            </div>
           </div>
-          <div class="flex items-center gap-2">
-            <LanguageSwitcher />
-            <ThemeToggle />
-          </div>
+          <p class="text-muted-foreground">
+            {{ $t('scan_detail.security_score') }}: {{ scanStore.currentScan?.score?.toFixed(1) || 'N/A' }}
+            <span class="mx-2">•</span>
+            <span class="text-xs">
+              {{ $t('scan_detail.last_updated') }}: {{ lastUpdated.toLocaleTimeString() }}
+              <span v-if="scanStore.loading" class="ml-2 text-primary animate-pulse">{{ $t('scan_detail.refreshing') }}</span>
+            </span>
+          </p>
         </div>
+        <div class="flex items-center gap-2">
+          <LanguageSwitcher />
+          <ThemeToggle />
+        </div>
+      </div>
 
         <!-- Severity Stats -->
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
@@ -352,5 +312,5 @@ const handleUnignore = async (vuln: any) => {
         </div>
       </div>
     </main>
-  </div>
+  </DashboardLayout>
 </template>
