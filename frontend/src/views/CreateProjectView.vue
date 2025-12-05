@@ -8,6 +8,7 @@ import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
+import LanguageSwitcher from '../components/LanguageSwitcher.vue';
 
 const router = useRouter();
 const projectStore = useProjectStore();
@@ -102,7 +103,7 @@ const goBack = () => {
             class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <FolderGit2 class="w-4 h-4" />
-            Projects
+            {{ $t('projects.title') }}
           </router-link>
         </div>
       </nav>
@@ -115,7 +116,7 @@ const goBack = () => {
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          Logout
+          {{ $t('common.logout') }}
         </button>
       </div>
     </aside>
@@ -126,10 +127,13 @@ const goBack = () => {
         <!-- Header -->
         <div class="flex justify-between items-center mb-8">
           <div>
-            <h2 class="text-3xl font-bold tracking-tight">Create New Project</h2>
+            <h2 class="text-3xl font-bold tracking-tight">{{ $t('create_project.title') }}</h2>
             <p class="text-muted-foreground mt-1">Step {{ step }} of 3</p>
           </div>
-          <ThemeToggle />
+          <div class="flex items-center gap-2">
+            <LanguageSwitcher />
+            <ThemeToggle />
+          </div>
         </div>
 
         <!-- Progress -->
@@ -139,7 +143,7 @@ const goBack = () => {
               <Check v-if="step > 1" class="w-4 h-4" />
               <span v-else>1</span>
             </div>
-            <span class="text-sm font-medium">Repository</span>
+            <span class="text-sm font-medium">{{ $t('projects.columns.repository') }}</span>
           </div>
           <div class="flex-1 h-px bg-border"></div>
           <div class="flex items-center gap-2">
@@ -147,19 +151,19 @@ const goBack = () => {
               <Check v-if="step > 2" class="w-4 h-4" />
               <span v-else>2</span>
             </div>
-            <span class="text-sm font-medium">Branch</span>
+            <span class="text-sm font-medium">{{ $t('projects.columns.branch') }}</span>
           </div>
           <div class="flex-1 h-px bg-border"></div>
           <div class="flex items-center gap-2">
             <div :class="step >= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">3</div>
-            <span class="text-sm font-medium">Configure</span>
+            <span class="text-sm font-medium">{{ $t('project_detail.configuration') }}</span>
           </div>
         </div>
 
         <!-- Step 1: Select Repository -->
         <Card v-if="step === 1">
           <CardHeader>
-            <CardTitle>Select Repository</CardTitle>
+            <CardTitle>{{ $t('create_project.step_1_title') }}</CardTitle>
           </CardHeader>
           <CardContent>
             <div v-if="projectStore.loading" class="flex items-center justify-center py-12">
@@ -190,7 +194,7 @@ const goBack = () => {
               class="mt-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft class="w-4 h-4" />
-              Back to Projects
+              {{ $t('project_detail.back_to_projects') }}
             </button>
           </CardContent>
         </Card>
@@ -198,8 +202,8 @@ const goBack = () => {
         <!-- Step 2: Select Branch -->
         <Card v-if="step === 2">
           <CardHeader>
-            <CardTitle>Select Branch</CardTitle>
-            <p class="text-sm text-muted-foreground mt-1">Repository: {{ formData.repositoryName }}</p>
+            <CardTitle>{{ $t('create_project.step_2_title') }}</CardTitle>
+            <p class="text-sm text-muted-foreground mt-1">{{ $t('projects.columns.repository') }}: {{ formData.repositoryName }}</p>
           </CardHeader>
           <CardContent>
             <div v-if="projectStore.loading" class="flex items-center justify-center py-12">
@@ -230,7 +234,7 @@ const goBack = () => {
               class="mt-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft class="w-4 h-4" />
-              Back
+              {{ $t('common.back') }}
             </button>
           </CardContent>
         </Card>
@@ -238,17 +242,17 @@ const goBack = () => {
         <!-- Step 3: Select Lockfile (New Step) -->
         <Card v-if="step === 3">
           <CardHeader>
-            <CardTitle>Select Lockfile</CardTitle>
-            <p class="text-sm text-muted-foreground mt-1">Select the project you want to scan</p>
+            <CardTitle>{{ $t('create_project.step_3_title') }}</CardTitle>
+            <p class="text-sm text-muted-foreground mt-1">{{ $t('create_project.step_3_desc') }}</p>
           </CardHeader>
           <CardContent>
             <div v-if="detectedLockfiles.length === 0" class="text-center py-8">
-              <p class="text-muted-foreground mb-4">No lockfiles found in this branch.</p>
+              <p class="text-muted-foreground mb-4">{{ $t('create_project.no_lockfiles') }}</p>
               <button
                 @click="step = 4"
                 class="text-primary hover:underline"
               >
-                Configure manually
+                {{ $t('create_project.configure_manually') }}
               </button>
             </div>
 
@@ -262,7 +266,7 @@ const goBack = () => {
                 <div class="flex justify-between items-center">
                   <div>
                     <h3 class="font-medium">{{ lockfile.path }}</h3>
-                    <p class="text-sm text-muted-foreground">Detected: {{ lockfile.packageManager }}</p>
+                    <p class="text-sm text-muted-foreground">{{ $t('create_project.detected') }}: {{ lockfile.packageManager }}</p>
                   </div>
                   <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -276,7 +280,7 @@ const goBack = () => {
               class="mt-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft class="w-4 h-4" />
-              Back
+              {{ $t('common.back') }}
             </button>
           </CardContent>
         </Card>
@@ -284,12 +288,12 @@ const goBack = () => {
         <!-- Step 4: Configure -->
         <Card v-if="step === 4">
           <CardHeader>
-            <CardTitle>Configure Project</CardTitle>
+            <CardTitle>{{ $t('create_project.step_4_title') }}</CardTitle>
           </CardHeader>
           <CardContent>
             <form @submit.prevent="handleSubmit" class="space-y-6">
               <div class="space-y-2">
-                <label class="text-sm font-medium">Project Name</label>
+                <label class="text-sm font-medium">{{ $t('create_project.project_name') }}</label>
                 <input
                   v-model="formData.name"
                   type="text"
@@ -299,17 +303,17 @@ const goBack = () => {
               </div>
 
               <div class="space-y-2">
-                <label class="text-sm font-medium">Lockfile Path</label>
+                <label class="text-sm font-medium">{{ $t('create_project.lockfile_path') }}</label>
                 <input
                   v-model="formData.lockfilePath"
                   type="text"
                   class="w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 />
-                <p class="text-xs text-muted-foreground">Path to lockfile relative to repo root (e.g., ./package-lock.json)</p>
+                <p class="text-xs text-muted-foreground">{{ $t('create_project.lockfile_path_desc') }}</p>
               </div>
 
               <div class="space-y-2">
-                <label class="text-sm font-medium">Package Manager</label>
+                <label class="text-sm font-medium">{{ $t('create_project.package_manager') }}</label>
                 <select
                   v-model="formData.packageManager"
                   class="w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
@@ -322,7 +326,7 @@ const goBack = () => {
               </div>
 
               <div class="space-y-2">
-                <label class="text-sm font-medium">Cron Schedule</label>
+                <label class="text-sm font-medium">{{ $t('project_detail.cron_schedule') }}</label>
                 <input
                   v-model="formData.cronSchedule"
                   type="text"
@@ -340,7 +344,7 @@ const goBack = () => {
                   class="w-4 h-4 rounded border-gray-300"
                 />
                 <label for="emailEnabled" class="text-sm">
-                  Enable email notifications
+                  {{ $t('project_detail.enable_email') }}
                 </label>
               </div>
 
@@ -350,13 +354,13 @@ const goBack = () => {
                   @click="goBack"
                   class="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-secondary text-secondary-foreground hover:bg-secondary/80 h-10 px-4 py-2"
                 >
-                  Back
+                  {{ $t('common.back') }}
                 </button>
                 <button
                   type="submit"
                   class="flex-1 inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
                 >
-                  Create Project
+                  {{ $t('projects.create_new') }}
                 </button>
               </div>
             </form>

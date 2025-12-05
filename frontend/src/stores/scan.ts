@@ -52,20 +52,20 @@ export const useScanStore = defineStore('scan', () => {
         }
     }
 
-    async function fetchScans(projectId: number) {
-        loading.value = true;
+    async function fetchScans(projectId: number, background = false) {
+        if (!background) loading.value = true;
         try {
             const response = await axios.get(`${API_URL}/scans/project/${projectId}`, getHeaders());
             scans.value = response.data;
         } catch (error) {
             console.error('Failed to fetch scans', error);
         } finally {
-            loading.value = false;
+            if (!background) loading.value = false;
         }
     }
 
-    async function fetchScanDetails(scanId: number) {
-        loading.value = true;
+    async function fetchScanDetails(scanId: number, background = false) {
+        if (!background) loading.value = true;
         try {
             const response = await axios.get(`${API_URL}/scans/${scanId}`, getHeaders());
             currentScan.value = response.data;
@@ -73,7 +73,7 @@ export const useScanStore = defineStore('scan', () => {
         } catch (error) {
             console.error('Failed to fetch scan details', error);
         } finally {
-            loading.value = false;
+            if (!background) loading.value = false;
         }
     }
 

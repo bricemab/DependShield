@@ -8,6 +8,7 @@ import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
+import LanguageSwitcher from '../components/LanguageSwitcher.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -17,15 +18,20 @@ const scanId = computed(() => parseInt(route.params.id as string));
 const selectedSeverity = ref<string>('all');
 const showIgnored = ref(false);
 
+const lastUpdated = ref(new Date());
 let pollInterval: any = null;
 
 const startPolling = () => {
   if (pollInterval) return;
   
+  console.log('Starting polling for scan status...');
   pollInterval = setInterval(async () => {
+    console.log('Polling scan status...', scanStore.currentScan?.status);
     if (scanStore.currentScan?.status === 'running' || scanStore.currentScan?.status === 'pending') {
-        await scanStore.fetchScanDetails(scanId.value);
+        await scanStore.fetchScanDetails(scanId.value, true);
+        lastUpdated.value = new Date();
     } else {
+        console.log('Scan completed or failed, stopping polling.');
         stopPolling();
     }
   }, 5000);
@@ -119,7 +125,7 @@ const handleUnignore = async (vuln: any) => {
             class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <FolderGit2 class="w-4 h-4" />
-            Projects
+            {{ $t('projects.title') }}
           </router-link>
         </div>
       </nav>
@@ -132,7 +138,7 @@ const handleUnignore = async (vuln: any) => {
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          Logout
+          {{ $t('common.logout') }}
         </button>
       </div>
     </aside>
@@ -148,24 +154,34 @@ const handleUnignore = async (vuln: any) => {
               class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
             >
               <ArrowLeft class="w-4 h-4" />
-              Back
+              {{ $t('common.back') }}
             </button>
             <div class="flex items-center gap-3 mb-2">
-              <h2 class="text-3xl font-bold tracking-tight">Scan #{{ scanId }}</h2>
+              <h2 class="text-3xl font-bold tracking-tight">{{ $t('scan_detail.title', { id: scanId }) }}</h2>
               <div v-if="scanStore.currentScan?.status === 'running'" class="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium border border-blue-200">
                 <div class="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-700"></div>
-                Scanning...
+                {{ $t('project_detail.scanning') }}
               </div>
               <div v-else-if="scanStore.currentScan?.status === 'pending'" class="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium border border-gray-200">
-                Pending...
+                {{ $t('scan_detail.pending') }}
               </div>
               <div v-else-if="scanStore.currentScan?.status === 'failed'" class="px-3 py-1 rounded-full bg-red-100 text-red-700 text-sm font-medium border border-red-200">
-                Failed
+                {{ $t('scan_detail.failed') }}
               </div>
             </div>
-            <p class="text-muted-foreground">Security Score: {{ scanStore.currentScan?.score?.toFixed(1) || 'N/A' }}</p>
+            <p class="text-muted-foreground">
+              {{ $t('scan_detail.security_score') }}: {{ scanStore.currentScan?.score?.toFixed(1) || 'N/A' }}
+              <span class="mx-2">•</span>
+              <span class="text-xs">
+                {{ $t('scan_detail.last_updated') }}: {{ lastUpdated.toLocaleTimeString() }}
+                <span v-if="scanStore.loading" class="ml-2 text-primary animate-pulse">{{ $t('scan_detail.refreshing') }}</span>
+              </span>
+            </p>
           </div>
-          <ThemeToggle />
+          <div class="flex items-center gap-2">
+            <LanguageSwitcher />
+            <ThemeToggle />
+          </div>
         </div>
 
         <!-- Severity Stats -->
@@ -174,7 +190,7 @@ const handleUnignore = async (vuln: any) => {
             <CardContent class="pt-6">
               <div class="text-center">
                 <div class="text-3xl font-bold text-red-500">{{ severityCounts.critical }}</div>
-                <div class="text-sm text-muted-foreground mt-1">Critical</div>
+                <div class="text-sm text-muted-foreground mt-1">{{ $t('scan_detail.severity.critical') }}</div>
               </div>
             </CardContent>
           </Card>
@@ -182,7 +198,7 @@ const handleUnignore = async (vuln: any) => {
             <CardContent class="pt-6">
               <div class="text-center">
                 <div class="text-3xl font-bold text-orange-500">{{ severityCounts.high }}</div>
-                <div class="text-sm text-muted-foreground mt-1">High</div>
+                <div class="text-sm text-muted-foreground mt-1">{{ $t('scan_detail.severity.high') }}</div>
               </div>
             </CardContent>
           </Card>
@@ -190,7 +206,7 @@ const handleUnignore = async (vuln: any) => {
             <CardContent class="pt-6">
               <div class="text-center">
                 <div class="text-3xl font-bold text-yellow-500">{{ severityCounts.moderate }}</div>
-                <div class="text-sm text-muted-foreground mt-1">Moderate</div>
+                <div class="text-sm text-muted-foreground mt-1">{{ $t('scan_detail.severity.moderate') }}</div>
               </div>
             </CardContent>
           </Card>
@@ -198,7 +214,7 @@ const handleUnignore = async (vuln: any) => {
             <CardContent class="pt-6">
               <div class="text-center">
                 <div class="text-3xl font-bold text-blue-500">{{ severityCounts.low }}</div>
-                <div class="text-sm text-muted-foreground mt-1">Low</div>
+                <div class="text-sm text-muted-foreground mt-1">{{ $t('scan_detail.severity.low') }}</div>
               </div>
             </CardContent>
           </Card>
@@ -212,35 +228,35 @@ const handleUnignore = async (vuln: any) => {
               :class="selectedSeverity === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'"
               class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
             >
-              All
+              {{ $t('common.all') }}
             </button>
             <button
               @click="selectedSeverity = 'critical'"
               :class="selectedSeverity === 'critical' ? 'bg-red-500 text-white' : 'bg-secondary text-secondary-foreground'"
               class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
             >
-              Critical
+              {{ $t('scan_detail.severity.critical') }}
             </button>
             <button
               @click="selectedSeverity = 'high'"
               :class="selectedSeverity === 'high' ? 'bg-orange-500 text-white' : 'bg-secondary text-secondary-foreground'"
               class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
             >
-              High
+              {{ $t('scan_detail.severity.high') }}
             </button>
             <button
               @click="selectedSeverity = 'moderate'"
               :class="selectedSeverity === 'moderate' ? 'bg-yellow-500 text-white' : 'bg-secondary text-secondary-foreground'"
               class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
             >
-              Moderate
+              {{ $t('scan_detail.severity.moderate') }}
             </button>
             <button
               @click="selectedSeverity = 'low'"
               :class="selectedSeverity === 'low' ? 'bg-blue-500 text-white' : 'bg-secondary text-secondary-foreground'"
               class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
             >
-              Low
+              {{ $t('scan_detail.severity.low') }}
             </button>
           </div>
 
@@ -252,7 +268,7 @@ const handleUnignore = async (vuln: any) => {
               class="w-4 h-4 rounded border-gray-300"
             />
             <label for="showIgnored" class="text-sm font-medium cursor-pointer">
-              Show Ignored
+              {{ $t('scan_detail.show_ignored') }}
             </label>
           </div>
         </div>
@@ -298,7 +314,7 @@ const handleUnignore = async (vuln: any) => {
             <CardContent>
               <div class="space-y-2 text-sm">
                 <div class="flex gap-2">
-                  <span class="text-muted-foreground">Vulnerable:</span>
+                  <span class="text-muted-foreground">{{ $t('scan_detail.vulnerable') }}:</span>
                   <span class="font-mono">{{ vuln.version }}</span>
                 </div>
                 <div v-if="vuln.cve" class="flex gap-2">
@@ -307,7 +323,7 @@ const handleUnignore = async (vuln: any) => {
                 </div>
                 <div v-if="vuln.url" class="mt-2">
                   <a :href="vuln.url" target="_blank" class="text-primary hover:underline text-sm">
-                    View Advisory →
+                    {{ $t('scan_detail.view_advisory') }} →
                   </a>
                 </div>
               </div>
@@ -315,7 +331,7 @@ const handleUnignore = async (vuln: any) => {
           </Card>
 
           <div v-if="filteredVulnerabilities.length === 0" class="text-center py-12">
-            <p class="text-muted-foreground">No vulnerabilities found for this filter.</p>
+            <p class="text-muted-foreground">{{ $t('scan_detail.no_vulnerabilities') }}</p>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue';
+import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
 import { useScanStore } from '../stores/scan';
@@ -9,6 +9,7 @@ import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
+import LanguageSwitcher from '../components/LanguageSwitcher.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -23,12 +24,45 @@ onMounted(async () => {
     await projectStore.fetchProjects();
   }
   await scanStore.fetchScans(projectId.value);
+  checkPolling();
 });
+
+onUnmounted(() => {
+  stopPolling();
+});
+
+let pollInterval: any = null;
+
+const startPolling = () => {
+  if (pollInterval) return;
+  
+  pollInterval = setInterval(async () => {
+    await scanStore.fetchScans(projectId.value, true);
+    checkPolling();
+  }, 5000);
+};
+
+const stopPolling = () => {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+};
+
+const checkPolling = () => {
+  const hasRunningScans = scanStore.scans.some(s => s.status === 'running' || s.status === 'pending');
+  if (hasRunningScans) {
+    startPolling();
+  } else {
+    stopPolling();
+  }
+};
 
 const handleTriggerScan = async () => {
   try {
     await scanStore.triggerScan(projectId.value);
     await scanStore.fetchScans(projectId.value);
+    startPolling();
   } catch (error) {
     alert('Failed to trigger scan');
   }
@@ -110,7 +144,7 @@ const handleUpdateSettings = async () => {
             class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
           >
             <FolderGit2 class="w-4 h-4" />
-            Projects
+            {{ $t('projects.title') }}
           </router-link>
         </div>
       </nav>
@@ -123,7 +157,7 @@ const handleUpdateSettings = async () => {
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          Logout
+          {{ $t('common.logout') }}
         </button>
       </div>
     </aside>
@@ -139,12 +173,13 @@ const handleUpdateSettings = async () => {
               class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
             >
               <ArrowLeft class="w-4 h-4" />
-              Back to Projects
+              {{ $t('project_detail.back_to_projects') }}
             </button>
             <h2 class="text-3xl font-bold tracking-tight mb-2">{{ project?.name }}</h2>
             <p class="text-muted-foreground">{{ project?.repositoryName }} • {{ project?.branch }}</p>
           </div>
           <div class="flex items-center gap-2">
+            <LanguageSwitcher />
             <ThemeToggle />
             <button
               @click="handleTriggerScan"
@@ -153,7 +188,7 @@ const handleUpdateSettings = async () => {
             >
               <Play v-if="!scanStore.loading" class="w-4 h-4" />
               <div v-else class="animate-spin rounded-full h-4 w-4 border-b-2 border-primary-foreground"></div>
-              {{ scanStore.loading ? 'Scanning...' : 'Run Scan' }}
+              {{ scanStore.loading ? $t('project_detail.scanning') : $t('project_detail.run_scan') }}
             </button>
           </div>
         </div>
@@ -162,7 +197,7 @@ const handleUpdateSettings = async () => {
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader class="flex flex-row items-center justify-between pb-2">
-              <CardTitle class="text-sm font-medium text-muted-foreground">Total Scans</CardTitle>
+              <CardTitle class="text-sm font-medium text-muted-foreground">{{ $t('project_detail.total_scans') }}</CardTitle>
               <FileText class="w-4 h-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -172,7 +207,7 @@ const handleUpdateSettings = async () => {
 
           <Card>
             <CardHeader class="flex flex-row items-center justify-between pb-2">
-              <CardTitle class="text-sm font-medium text-muted-foreground">Latest Score</CardTitle>
+              <CardTitle class="text-sm font-medium text-muted-foreground">{{ $t('project_detail.latest_score') }}</CardTitle>
               <Shield class="w-4 h-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -182,7 +217,7 @@ const handleUpdateSettings = async () => {
 
           <Card>
             <CardHeader class="flex flex-row items-center justify-between pb-2">
-              <CardTitle class="text-sm font-medium text-muted-foreground">Package Manager</CardTitle>
+              <CardTitle class="text-sm font-medium text-muted-foreground">{{ $t('project_detail.package_manager') }}</CardTitle>
               <Package2 class="w-4 h-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -194,7 +229,7 @@ const handleUpdateSettings = async () => {
         <!-- Scan History -->
         <Card>
           <CardHeader>
-            <CardTitle>Scan History</CardTitle>
+            <CardTitle>{{ $t('project_detail.scan_history') }}</CardTitle>
           </CardHeader>
           <CardContent>
             <div v-if="scanStore.loading" class="flex items-center justify-center py-12">
@@ -202,12 +237,12 @@ const handleUpdateSettings = async () => {
             </div>
 
             <div v-else-if="scanStore.scans.length === 0" class="text-center py-12">
-              <p class="text-muted-foreground mb-4">No scans yet. Run your first scan!</p>
+              <p class="text-muted-foreground mb-4">{{ $t('project_detail.no_scans') }}</p>
               <button
                 @click="handleTriggerScan"
                 class="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
               >
-                Run First Scan
+                {{ $t('project_detail.run_first_scan') }}
               </button>
             </div>
 
@@ -216,18 +251,19 @@ const handleUpdateSettings = async () => {
                 <thead>
                   <tr class="border-b">
                     <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">ID</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Status</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Vulnerabilities</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Score</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Started At</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">Actions</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('common.status') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('projects.columns.vulnerabilities') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('projects.columns.score') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('project_detail.cron_schedule') }}</th>
+                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('common.actions') }}</th>
                   </tr>
                 </thead>
                 <tbody class="divide-y">
                   <tr v-for="scan in scanStore.scans" :key="scan.id" class="hover:bg-muted/50">
                     <td class="px-4 py-3 text-sm font-mono">#{{ scan.id }}</td>
                     <td class="px-4 py-3">
-                      <span :class="getStatusColor(scan.status)" class="px-2 py-1 rounded-md text-xs font-medium border">
+                      <span :class="getStatusColor(scan.status)" class="px-2 py-1 rounded-md text-xs font-medium border inline-flex items-center gap-2">
+                        <div v-if="scan.status === 'running'" class="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
                         {{ scan.status }}
                       </span>
                     </td>
@@ -239,7 +275,7 @@ const handleUpdateSettings = async () => {
                         @click="router.push(`/scans/${scan.id}`)"
                         class="text-sm text-primary hover:underline"
                       >
-                        View Details →
+                        {{ $t('common.actions') }} →
                       </button>
                     </td>
                   </tr>
@@ -252,12 +288,12 @@ const handleUpdateSettings = async () => {
         <!-- Configuration -->
         <Card class="mt-8">
           <CardHeader>
-            <CardTitle>Configuration</CardTitle>
+            <CardTitle>{{ $t('project_detail.configuration') }}</CardTitle>
           </CardHeader>
           <CardContent>
             <form @submit.prevent="handleUpdateSettings" class="space-y-6 max-w-md">
               <div class="space-y-2">
-                <label class="text-sm font-medium">Cron Schedule</label>
+                <label class="text-sm font-medium">{{ $t('project_detail.cron_schedule') }}</label>
                 <input
                   v-model="settingsForm.cronSchedule"
                   type="text"
@@ -275,7 +311,7 @@ const handleUpdateSettings = async () => {
                   class="w-4 h-4 rounded border-gray-300"
                 />
                 <label for="emailEnabled" class="text-sm">
-                  Enable email notifications
+                  {{ $t('project_detail.enable_email') }}
                 </label>
               </div>
 
@@ -284,7 +320,7 @@ const handleUpdateSettings = async () => {
                 :disabled="isSettingsLoading"
                 class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 disabled:opacity-50"
               >
-                {{ isSettingsLoading ? 'Saving...' : 'Save Changes' }}
+                {{ isSettingsLoading ? $t('project_detail.saving') : $t('project_detail.save_changes') }}
               </button>
             </form>
           </CardContent>

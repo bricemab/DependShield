@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Github } from 'lucide-vue-next';
+import LanguageSwitcher from '../components/LanguageSwitcher.vue';
 
 const handleLogin = () => {
   window.location.href = 'http://localhost:3000/auth/github';
@@ -7,7 +8,10 @@ const handleLogin = () => {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-background">
+  <div class="min-h-screen flex items-center justify-center bg-background relative">
+    <div class="absolute top-4 right-4">
+      <LanguageSwitcher />
+    </div>
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary mb-4">
@@ -20,15 +24,15 @@ const handleLogin = () => {
       </div>
 
       <div class="bg-card border rounded-xl p-8 shadow-lg">
-        <h2 class="text-2xl font-semibold mb-2">Welcome back</h2>
-        <p class="text-muted-foreground mb-6">Sign in to manage your vulnerability scanners</p>
+        <h2 class="text-2xl font-semibold mb-2">{{ $t('auth.login_title') }}</h2>
+        <p class="text-muted-foreground mb-6">{{ $t('auth.login_subtitle') }}</p>
         
         <button
           @click="handleLogin"
           class="w-full inline-flex items-center justify-center gap-3 rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring bg-primary text-primary-foreground hover:bg-primary/90 h-11 px-8"
         >
           <Github class="w-5 h-5" />
-          Sign in with GitHub
+          {{ $t('auth.login_github') }}
         </button>
 
         <p class="text-xs text-muted-foreground text-center mt-6">

@@ -8,6 +8,7 @@ import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
 import ThemeToggle from '../components/ThemeToggle.vue';
+import LanguageSwitcher from '../components/LanguageSwitcher.vue';
 
 const router = useRouter();
 const projectStore = useProjectStore();
@@ -58,7 +59,7 @@ const handleDeleteProject = async (id: number, event: Event) => {
             active-class="bg-accent text-accent-foreground"
           >
             <FolderGit2 class="w-4 h-4" />
-            Projects
+            {{ $t('projects.title') }}
           </router-link>
         </div>
       </nav>
@@ -72,7 +73,7 @@ const handleDeleteProject = async (id: number, event: Event) => {
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          Logout
+          {{ $t('common.logout') }}
         </button>
       </div>
     </aside>
@@ -83,17 +84,18 @@ const handleDeleteProject = async (id: number, event: Event) => {
         <!-- Header -->
         <div class="flex justify-between items-center mb-8">
           <div>
-            <h2 class="text-3xl font-bold tracking-tight">Projects</h2>
-            <p class="text-muted-foreground mt-1">Manage your vulnerability scanners</p>
+            <h2 class="text-3xl font-bold tracking-tight">{{ $t('projects.title') }}</h2>
+            <p class="text-muted-foreground mt-1">{{ $t('projects.subtitle') }}</p>
           </div>
           <div class="flex items-center gap-2">
+            <LanguageSwitcher />
             <ThemeToggle />
             <button
               @click="handleCreateProject"
               class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 gap-2"
             >
               <Plus class="w-4 h-4" />
-              New Project
+              {{ $t('projects.create_new') }}
             </button>
           </div>
         </div>
@@ -108,14 +110,14 @@ const handleDeleteProject = async (id: number, event: Event) => {
           <div class="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
             <FolderGit2 class="w-8 h-8 text-muted-foreground" />
           </div>
-          <h3 class="text-xl font-semibold mb-2">No projects yet</h3>
-          <p class="text-muted-foreground mb-6">Get started by creating your first vulnerability scanner</p>
+          <h3 class="text-xl font-semibold mb-2">{{ $t('projects.no_projects') }}</h3>
+          <p class="text-muted-foreground mb-6">{{ $t('projects.create_first') }}</p>
           <button
             @click="handleCreateProject"
             class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 gap-2"
           >
             <Plus class="w-4 h-4" />
-            Create Your First Project
+            {{ $t('projects.create_new') }}
           </button>
         </div>
 
@@ -145,25 +147,25 @@ const handleDeleteProject = async (id: number, event: Event) => {
               <div class="space-y-3">
                 <div class="flex items-center gap-2 text-sm">
                   <GitBranch class="w-4 h-4 text-muted-foreground" />
-                  <span class="text-muted-foreground">Branch:</span>
+                  <span class="text-muted-foreground">{{ $t('projects.columns.branch') }}:</span>
                   <span class="font-medium">{{ project.branch }}</span>
                 </div>
                 <div class="flex items-center gap-2 text-sm">
                   <Package class="w-4 h-4 text-muted-foreground" />
-                  <span class="text-muted-foreground">Package:</span>
+                  <span class="text-muted-foreground">{{ $t('project_detail.package_manager') }}:</span>
                   <span class="font-medium uppercase">{{ project.packageManager }}</span>
                 </div>
                 <div class="flex items-center gap-2 text-sm">
                   <Mail class="w-4 h-4 text-muted-foreground" />
-                  <span class="text-muted-foreground">Email:</span>
+                  <span class="text-muted-foreground">{{ $t('common.email') }}:</span>
                   <span :class="project.emailEnabled ? 'text-green-500' : 'text-muted-foreground'">
-                    {{ project.emailEnabled ? 'Enabled' : 'Disabled' }}
+                    {{ project.emailEnabled ? $t('common.yes') : $t('common.no') }}
                   </span>
                 </div>
               </div>
               <div class="mt-4 pt-4 border-t">
                 <span class="text-sm text-primary font-medium inline-flex items-center gap-1">
-                  View Details
+                  {{ $t('common.actions') }}
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                   </svg>

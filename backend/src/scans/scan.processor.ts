@@ -109,9 +109,6 @@ export class ScanProcessor {
                 await this.notificationsService.sendScanResultEmail(scan.project.user.email, scan);
             }
 
-            // Cleanup
-            await fs.remove(scanDir);
-
             this.logger.log(`Scan ${scanId} completed successfully`);
         } catch (error) {
             this.logger.error(`Scan ${scanId} failed:`, error);
@@ -119,6 +116,18 @@ export class ScanProcessor {
             scan.errorMessage = error.message;
             scan.completedAt = new Date();
             await this.scansRepository.save(scan);
+        } finally {
+            // Cleanup
+            const tempDir = this.configService.get<string>('scan.tempDir');
+            const scanDir = path.join(tempDir, `scan-${scanId}`);
+            try {
+                if (await fs.pathExists(scanDir)) {
+                    await fs.remove(scanDir);
+                    this.logger.log(`Cleaned up directory for scan ${scanId}`);
+                }
+            } catch (cleanupError) {
+                this.logger.error(`Failed to cleanup scan directory for scan ${scanId}`, cleanupError);
+            }
         }
     }
 

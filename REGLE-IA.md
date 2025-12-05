@@ -36,21 +36,27 @@ Fichier de référence interne pour l’IA
 ## 3. Backlog (Kanban)
 
 ### TODO
-- [ ] Implémenter le Dashboard (Liste des projets, Création).
-- [ ] Implémenter la logique de Scan (Queue processor, npm audit).
-- [ ] Gestion des vulnérabilités (Affichage, Whitelist).
+- [ ] Abstraction du Provider Git (pour futur GitLab/Bitbucket).
+- [ ] Tests unitaires et E2E plus complets.
 
 ### DOING
 *(Vide)*
 
 ### DONE
 - [x] Initialiser le repository Git et la structure Git Flow (branches main, develop).
-- [x] Bootstrap Frontend : Vue 3, Vite, Tailwind, Pinia, i18n, Router.
+- [x] Bootstrap Frontend : Vue 3, Vite, Tailwind, Pinia, Router.
 - [x] Configurer l'intégration GitHub OAuth (Backend & Frontend).
 - [x] Bootstrap Backend : NestJS, TypeORM, MySQL, Config, Logger (Winston).
 - [x] Créer le modèle de données User et Project (Checker).
-- [x] Implémenter la logique de détection des lockfiles.
+- [x] Implémenter la logique de détection des lockfiles (Monorepo support).
 - [x] Mettre en place le système de queue (BullMQ) pour les scans.
+- [x] Implémenter le Dashboard (Liste des projets, Création, Détail).
+- [x] Implémenter la logique de Scan (Queue processor, audit commands).
+- [x] Gestion des vulnérabilités (Affichage, Whitelist Backend & Frontend).
+- [x] Notifications Email (SMTP, Gmail support).
+- [x] Auto-update des status de scan (Polling & UI).
+- [x] Vérification de la connexion Redis au démarrage.
+- [x] Implémenter l'internationalisation (i18n) FR/EN.
 
 ## 4. Notes importantes
 - Ce fichier doit toujours rester court, clair et entièrement lisible par l’IA au début de chaque session.
