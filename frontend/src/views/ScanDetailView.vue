@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { onMounted, computed, ref } from 'vue';
+import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useScanStore } from '../stores/scan';
-import { FolderGit2, ArrowLeft, AlertTriangle } from 'lucide-vue-next';
+import { FolderGit2, ArrowLeft, AlertTriangle, Eye, EyeOff } from 'lucide-vue-next';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
@@ -15,16 +15,51 @@ const scanStore = useScanStore();
 
 const scanId = computed(() => parseInt(route.params.id as string));
 const selectedSeverity = ref<string>('all');
+const showIgnored = ref(false);
+
+let pollInterval: any = null;
+
+const startPolling = () => {
+  if (pollInterval) return;
+  
+  pollInterval = setInterval(async () => {
+    if (scanStore.currentScan?.status === 'running' || scanStore.currentScan?.status === 'pending') {
+        await scanStore.fetchScanDetails(scanId.value);
+    } else {
+        stopPolling();
+    }
+  }, 5000);
+};
+
+const stopPolling = () => {
+  if (pollInterval) {
+    clearInterval(pollInterval);
+    pollInterval = null;
+  }
+};
 
 onMounted(async () => {
   await scanStore.fetchScanDetails(scanId.value);
+  if (scanStore.currentScan?.status === 'running' || scanStore.currentScan?.status === 'pending') {
+      startPolling();
+  }
+});
+
+onUnmounted(() => {
+  stopPolling();
 });
 
 const filteredVulnerabilities = computed(() => {
-  if (selectedSeverity.value === 'all') {
-    return scanStore.vulnerabilities;
+  let vulns = scanStore.vulnerabilities;
+  
+  if (!showIgnored.value) {
+    vulns = vulns.filter(v => !v.whitelisted);
   }
-  return scanStore.vulnerabilities.filter(v => v.severity === selectedSeverity.value);
+
+  if (selectedSeverity.value === 'all') {
+    return vulns;
+  }
+  return vulns.filter(v => v.severity === selectedSeverity.value);
 });
 
 const getSeverityColor = (severity: string) => {
@@ -40,10 +75,25 @@ const getSeverityColor = (severity: string) => {
 const severityCounts = computed(() => {
   const counts = { critical: 0, high: 0, moderate: 0, low: 0 };
   scanStore.vulnerabilities.forEach(v => {
-    if (v.severity in counts) counts[v.severity as keyof typeof counts]++;
+    if (!v.whitelisted && v.severity in counts) {
+      counts[v.severity as keyof typeof counts]++;
+    }
   });
   return counts;
 });
+
+const handleIgnore = async (vuln: any) => {
+  const reason = prompt('Reason for ignoring this vulnerability (optional):');
+  if (reason !== null) {
+    await scanStore.ignoreVulnerability(scanStore.currentScan!.projectId, vuln, reason);
+  }
+};
+
+const handleUnignore = async (vuln: any) => {
+  if (confirm('Are you sure you want to stop ignoring this vulnerability?')) {
+    await scanStore.unignoreVulnerability(scanStore.currentScan!.projectId, vuln);
+  }
+};
 </script>
 
 <template>
@@ -100,7 +150,19 @@ const severityCounts = computed(() => {
               <ArrowLeft class="w-4 h-4" />
               Back
             </button>
-            <h2 class="text-3xl font-bold tracking-tight mb-2">Scan #{{ scanId }}</h2>
+            <div class="flex items-center gap-3 mb-2">
+              <h2 class="text-3xl font-bold tracking-tight">Scan #{{ scanId }}</h2>
+              <div v-if="scanStore.currentScan?.status === 'running'" class="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-blue-700 text-sm font-medium border border-blue-200">
+                <div class="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-700"></div>
+                Scanning...
+              </div>
+              <div v-else-if="scanStore.currentScan?.status === 'pending'" class="px-3 py-1 rounded-full bg-gray-100 text-gray-700 text-sm font-medium border border-gray-200">
+                Pending...
+              </div>
+              <div v-else-if="scanStore.currentScan?.status === 'failed'" class="px-3 py-1 rounded-full bg-red-100 text-red-700 text-sm font-medium border border-red-200">
+                Failed
+              </div>
+            </div>
             <p class="text-muted-foreground">Security Score: {{ scanStore.currentScan?.score?.toFixed(1) || 'N/A' }}</p>
           </div>
           <ThemeToggle />
@@ -143,47 +205,61 @@ const severityCounts = computed(() => {
         </div>
 
         <!-- Filters -->
-        <div class="flex gap-2 mb-6">
-          <button
-            @click="selectedSeverity = 'all'"
-            :class="selectedSeverity === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'"
-            class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
-          >
-            All
-          </button>
-          <button
-            @click="selectedSeverity = 'critical'"
-            :class="selectedSeverity === 'critical' ? 'bg-red-500 text-white' : 'bg-secondary text-secondary-foreground'"
-            class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
-          >
-            Critical
-          </button>
-          <button
-            @click="selectedSeverity = 'high'"
-            :class="selectedSeverity === 'high' ? 'bg-orange-500 text-white' : 'bg-secondary text-secondary-foreground'"
-            class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
-          >
-            High
-          </button>
-          <button
-            @click="selectedSeverity = 'moderate'"
-            :class="selectedSeverity === 'moderate' ? 'bg-yellow-500 text-white' : 'bg-secondary text-secondary-foreground'"
-            class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
-          >
-            Moderate
-          </button>
-          <button
-            @click="selectedSeverity = 'low'"
-            :class="selectedSeverity === 'low' ? 'bg-blue-500 text-white' : 'bg-secondary text-secondary-foreground'"
-            class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
-          >
-            Low
-          </button>
+        <div class="flex justify-between items-center mb-6">
+          <div class="flex gap-2">
+            <button
+              @click="selectedSeverity = 'all'"
+              :class="selectedSeverity === 'all' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'"
+              class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              All
+            </button>
+            <button
+              @click="selectedSeverity = 'critical'"
+              :class="selectedSeverity === 'critical' ? 'bg-red-500 text-white' : 'bg-secondary text-secondary-foreground'"
+              class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              Critical
+            </button>
+            <button
+              @click="selectedSeverity = 'high'"
+              :class="selectedSeverity === 'high' ? 'bg-orange-500 text-white' : 'bg-secondary text-secondary-foreground'"
+              class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              High
+            </button>
+            <button
+              @click="selectedSeverity = 'moderate'"
+              :class="selectedSeverity === 'moderate' ? 'bg-yellow-500 text-white' : 'bg-secondary text-secondary-foreground'"
+              class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              Moderate
+            </button>
+            <button
+              @click="selectedSeverity = 'low'"
+              :class="selectedSeverity === 'low' ? 'bg-blue-500 text-white' : 'bg-secondary text-secondary-foreground'"
+              class="px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              Low
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="showIgnored"
+              v-model="showIgnored"
+              class="w-4 h-4 rounded border-gray-300"
+            />
+            <label for="showIgnored" class="text-sm font-medium cursor-pointer">
+              Show Ignored
+            </label>
+          </div>
         </div>
 
         <!-- Vulnerabilities List -->
         <div class="space-y-4">
-          <Card v-for="vuln in filteredVulnerabilities" :key="vuln.id">
+          <Card v-for="vuln in filteredVulnerabilities" :key="vuln.id" :class="vuln.whitelisted ? 'opacity-60' : ''">
             <CardHeader>
               <div class="flex items-start justify-between">
                 <div class="flex-1">
@@ -193,8 +269,29 @@ const severityCounts = computed(() => {
                     <span :class="getSeverityColor(vuln.severity)" class="px-2 py-1 rounded-md text-xs font-medium border uppercase">
                       {{ vuln.severity }}
                     </span>
+                    <span v-if="vuln.whitelisted" class="px-2 py-1 rounded-md text-xs font-medium bg-gray-200 text-gray-700 border border-gray-300 uppercase">
+                      Ignored
+                    </span>
                   </div>
                   <p class="text-sm text-muted-foreground">{{ vuln.title }}</p>
+                </div>
+                <div>
+                  <button
+                    v-if="!vuln.whitelisted"
+                    @click="handleIgnore(vuln)"
+                    class="p-2 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                    title="Ignore this vulnerability"
+                  >
+                    <EyeOff class="w-4 h-4" />
+                  </button>
+                  <button
+                    v-else
+                    @click="handleUnignore(vuln)"
+                    class="p-2 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                    title="Un-ignore this vulnerability"
+                  >
+                    <Eye class="w-4 h-4" />
+                  </button>
                 </div>
               </div>
             </CardHeader>
@@ -202,15 +299,11 @@ const severityCounts = computed(() => {
               <div class="space-y-2 text-sm">
                 <div class="flex gap-2">
                   <span class="text-muted-foreground">Vulnerable:</span>
-                  <span class="font-mono">{{ vuln.vulnerableVersions }}</span>
+                  <span class="font-mono">{{ vuln.version }}</span>
                 </div>
-                <div class="flex gap-2">
-                  <span class="text-muted-foreground">Patched:</span>
-                  <span class="font-mono">{{ vuln.patchedVersions || 'N/A' }}</span>
-                </div>
-                <div v-if="vuln.cwe" class="flex gap-2">
-                  <span class="text-muted-foreground">CWE:</span>
-                  <span>{{ vuln.cwe }}</span>
+                <div v-if="vuln.cve" class="flex gap-2">
+                  <span class="text-muted-foreground">CVE:</span>
+                  <span>{{ vuln.cve }}</span>
                 </div>
                 <div v-if="vuln.url" class="mt-2">
                   <a :href="vuln.url" target="_blank" class="text-primary hover:underline text-sm">

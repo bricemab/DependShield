@@ -12,6 +12,7 @@ import { promisify } from 'util';
 import { Scan, ScanStatus } from './scan.entity';
 import { Vulnerability, VulnerabilitySeverity } from './vulnerability.entity';
 import { NotificationsService } from '../notifications/notifications.service';
+import { WhitelistService } from './whitelist.service';
 
 const execAsync = promisify(exec);
 
@@ -26,6 +27,7 @@ export class ScanProcessor {
         private vulnerabilitiesRepository: Repository<Vulnerability>,
         private configService: ConfigService,
         private notificationsService: NotificationsService,
+        private whitelistService: WhitelistService,
     ) { }
 
     @Process('scan')
@@ -63,25 +65,41 @@ export class ScanProcessor {
             this.logger.log(`Running vulnerability scan for scan ${scanId}...`);
 
             // Run audit based on package manager
-            const auditResult = await this.runAudit(scanDir, scan.project.packageManager);
+            const auditDir = scan.project.lockfilePath ? path.join(scanDir, scan.project.lockfilePath) : scanDir;
+            const auditResult = await this.runAudit(auditDir, scan.project.packageManager);
 
             // Parse and store vulnerabilities
             const vulnerabilities = this.parseAuditResult(auditResult, scan.project.packageManager);
 
+            // Fetch whitelist rules for this project
+            const whitelistRules = await this.whitelistService.findAllByProject(scan.project.id);
+
             for (const vuln of vulnerabilities) {
+                // Check if whitelisted
+                const isWhitelisted = whitelistRules.some(rule => {
+                    if (rule.packageName !== vuln.packageName) return false;
+                    // If rule has CVE, it must match. If rule has no CVE, it matches all CVEs for this package.
+                    if (rule.cve && rule.cve !== vuln.cve) return false;
+                    return true;
+                });
+
                 const vulnerability = this.vulnerabilitiesRepository.create({
                     ...vuln,
                     scanId: scan.id,
+                    whitelisted: isWhitelisted,
                 });
                 await this.vulnerabilitiesRepository.save(vulnerability);
             }
 
-            // Calculate score
-            const score = this.calculateScore(vulnerabilities);
+            // Calculate score (exclude whitelisted)
+            const activeVulnerabilities = await this.vulnerabilitiesRepository.find({
+                where: { scanId: scan.id, whitelisted: false }
+            });
+            const score = this.calculateScore(activeVulnerabilities);
 
             // Update scan
             scan.status = ScanStatus.COMPLETED;
-            scan.vulnerabilitiesCount = vulnerabilities.length;
+            scan.vulnerabilitiesCount = activeVulnerabilities.length;
             scan.score = score;
             scan.completedAt = new Date();
             await this.scansRepository.save(scan);

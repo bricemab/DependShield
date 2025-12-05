@@ -77,6 +77,48 @@ export const useScanStore = defineStore('scan', () => {
         }
     }
 
+    async function ignoreVulnerability(projectId: number, vulnerability: any, reason?: string) {
+        try {
+            await axios.post(`${API_URL}/projects/${projectId}/whitelist`, {
+                packageName: vulnerability.packageName,
+                cve: vulnerability.cve,
+                title: vulnerability.title,
+                reason,
+            }, getHeaders());
+            // Update local state
+            const index = vulnerabilities.value.findIndex(v => v.id === vulnerability.id);
+            if (index !== -1) {
+                vulnerabilities.value[index].whitelisted = true;
+            }
+        } catch (error) {
+            console.error('Failed to ignore vulnerability', error);
+            throw error;
+        }
+    }
+
+    async function unignoreVulnerability(projectId: number, vulnerability: any) {
+        try {
+            const rulesResponse = await axios.get(`${API_URL}/projects/${projectId}/whitelist`, getHeaders());
+            const rules = rulesResponse.data;
+            const rule = rules.find((r: any) =>
+                r.packageName === vulnerability.packageName &&
+                (r.cve === vulnerability.cve || (!r.cve && !vulnerability.cve))
+            );
+
+            if (rule) {
+                await axios.delete(`${API_URL}/projects/${projectId}/whitelist/${rule.id}`, getHeaders());
+                // Update local state
+                const index = vulnerabilities.value.findIndex(v => v.id === vulnerability.id);
+                if (index !== -1) {
+                    vulnerabilities.value[index].whitelisted = false;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to unignore vulnerability', error);
+            throw error;
+        }
+    }
+
     return {
         scans,
         currentScan,
@@ -85,5 +127,7 @@ export const useScanStore = defineStore('scan', () => {
         triggerScan,
         fetchScans,
         fetchScanDetails,
+        ignoreVulnerability,
+        unignoreVulnerability,
     };
 });

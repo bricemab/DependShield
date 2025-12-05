@@ -19,6 +19,8 @@ export class ScansService {
     ) { }
 
     async triggerScan(projectId: number, userId?: number): Promise<Scan> {
+        this.logger.log(`Triggering scan for project ${projectId} (User: ${userId})`);
+
         // Verify project ownership if userId is provided
         if (userId) {
             await this.projectsService.findOne(projectId, userId);
@@ -26,6 +28,7 @@ export class ScansService {
             // System triggered scan, just verify project exists
             await this.projectsService.findOneById(projectId);
         }
+        this.logger.log(`Project verified`);
 
         // Create scan record
         const scan = this.scansRepository.create({
@@ -33,12 +36,12 @@ export class ScansService {
             status: ScanStatus.PENDING,
         });
         await this.scansRepository.save(scan);
+        this.logger.log(`Scan record created: ${scan.id}`);
 
         // Add to queue
         await this.scansQueue.add('scan', {
             scanId: scan.id,
         });
-
         this.logger.log(`Scan ${scan.id} added to queue`);
 
         return scan;

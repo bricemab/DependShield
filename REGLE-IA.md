@@ -36,7 +36,9 @@ Fichier de référence interne pour l’IA
 ## 3. Backlog (Kanban)
 
 ### TODO
-*(Vide)*
+- [ ] Implémenter le Dashboard (Liste des projets, Création).
+- [ ] Implémenter la logique de Scan (Queue processor, npm audit).
+- [ ] Gestion des vulnérabilités (Affichage, Whitelist).
 
 ### DOING
 *(Vide)*

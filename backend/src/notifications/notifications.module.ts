@@ -7,20 +7,30 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     imports: [
         MailerModule.forRootAsync({
             imports: [ConfigModule],
-            useFactory: async (configService: ConfigService) => ({
-                transport: {
-                    host: configService.get('email.host'),
-                    port: configService.get('email.port'),
-                    secure: configService.get('email.secure'),
-                    auth: {
-                        user: configService.get('email.user'),
-                        pass: configService.get('email.password'),
+            useFactory: async (configService: ConfigService) => {
+                const port = configService.get<number>('email.port');
+                const isSecure = port === 465; // Force secure=true for 465, false for others (like 587)
+
+                return {
+                    transport: {
+                        host: configService.get('email.host'),
+                        port: port,
+                        secure: isSecure,
+                        auth: {
+                            user: configService.get('email.user'),
+                            pass: configService.get('email.password'),
+                        },
+                        // Gmail specific settings for STARTTLS (port 587)
+                        tls: {
+                            ciphers: 'SSLv3',
+                            rejectUnauthorized: false,
+                        },
                     },
-                },
-                defaults: {
-                    from: configService.get('email.from'),
-                },
-            }),
+                    defaults: {
+                        from: configService.get('email.from'),
+                    },
+                };
+            },
             inject: [ConfigService],
         }),
     ],

@@ -23,6 +23,10 @@ export class CreateProjectDto {
 
     @IsString()
     @IsOptional()
+    lockfilePath?: string;
+
+    @IsString()
+    @IsOptional()
     cronSchedule?: string;
 
     @IsBoolean()

@@ -21,9 +21,11 @@ const formData = ref({
   packageManager: 'npm',
   cronSchedule: '0 0 * * *',
   emailEnabled: false,
+  lockfilePath: './',
 });
 
 const selectedRepo = ref<any>(null);
+const detectedLockfiles = ref<{ path: string; packageManager: string }[]>([]);
 
 onMounted(() => {
   projectStore.fetchRepositories();
@@ -43,13 +45,20 @@ const selectRepository = async (repo: any) => {
 const selectBranch = async (branchName: string) => {
   formData.value.branch = branchName;
   
-  const [owner, repoName] = formData.value.repositoryName.split('/');
-  const detectedPM = await projectStore.detectLockfile(owner, repoName, branchName);
-  if (detectedPM) {
-    formData.value.packageManager = detectedPM;
-  }
+  const parts = formData.value.repositoryName.split('/');
+  if (parts.length < 2) return;
+  const owner = parts[0];
+  const repoName = parts[1];
+  const lockfiles = await projectStore.detectLockfiles(owner, repoName, branchName);
   
+  detectedLockfiles.value = lockfiles;
   step.value = 3;
+};
+
+const selectLockfile = (lockfile: { path: string; packageManager: string }) => {
+  formData.value.lockfilePath = lockfile.path;
+  formData.value.packageManager = lockfile.packageManager;
+  step.value = 4;
 };
 
 const handleSubmit = async () => {
@@ -226,8 +235,54 @@ const goBack = () => {
           </CardContent>
         </Card>
 
-        <!-- Step 3: Configure -->
+        <!-- Step 3: Select Lockfile (New Step) -->
         <Card v-if="step === 3">
+          <CardHeader>
+            <CardTitle>Select Lockfile</CardTitle>
+            <p class="text-sm text-muted-foreground mt-1">Select the project you want to scan</p>
+          </CardHeader>
+          <CardContent>
+            <div v-if="detectedLockfiles.length === 0" class="text-center py-8">
+              <p class="text-muted-foreground mb-4">No lockfiles found in this branch.</p>
+              <button
+                @click="step = 4"
+                class="text-primary hover:underline"
+              >
+                Configure manually
+              </button>
+            </div>
+
+            <div v-else class="space-y-2">
+              <div
+                v-for="lockfile in detectedLockfiles"
+                :key="lockfile.path"
+                @click="selectLockfile(lockfile)"
+                class="p-4 border rounded-lg cursor-pointer hover:border-primary hover:bg-accent transition-colors"
+              >
+                <div class="flex justify-between items-center">
+                  <div>
+                    <h3 class="font-medium">{{ lockfile.path }}</h3>
+                    <p class="text-sm text-muted-foreground">Detected: {{ lockfile.packageManager }}</p>
+                  </div>
+                  <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                  </svg>
+                </div>
+              </div>
+            </div>
+
+            <button
+              @click="goBack"
+              class="mt-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft class="w-4 h-4" />
+              Back
+            </button>
+          </CardContent>
+        </Card>
+
+        <!-- Step 4: Configure -->
+        <Card v-if="step === 4">
           <CardHeader>
             <CardTitle>Configure Project</CardTitle>
           </CardHeader>
@@ -241,6 +296,16 @@ const goBack = () => {
                   required
                   class="w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 />
+              </div>
+
+              <div class="space-y-2">
+                <label class="text-sm font-medium">Lockfile Path</label>
+                <input
+                  v-model="formData.lockfilePath"
+                  type="text"
+                  class="w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+                <p class="text-xs text-muted-foreground">Path to lockfile relative to repo root (e.g., ./package-lock.json)</p>
               </div>
 
               <div class="space-y-2">

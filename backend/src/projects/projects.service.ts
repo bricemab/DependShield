@@ -105,33 +105,46 @@ export class ProjectsService {
         }));
     }
 
-    async detectLockfile(userId: number, owner: string, repo: string, branch: string): Promise<string | null> {
+    async detectLockfiles(userId: number, owner: string, repo: string, branch: string): Promise<{ path: string; packageManager: string }[]> {
         const user = await this.usersService.findOne(userId);
         if (!user || !user.accessToken) {
             throw new ForbiddenException('GitHub access token not found');
         }
 
         const octokit = new Octokit({ auth: user.accessToken });
-        const lockfiles = ['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb'];
+        const lockfiles: { path: string; packageManager: string }[] = [];
 
-        for (const lockfile of lockfiles) {
-            try {
-                await octokit.repos.getContent({
-                    owner,
-                    repo,
-                    path: lockfile,
-                    ref: branch,
-                });
-                // If we get here, the file exists
-                if (lockfile === 'package-lock.json') return 'npm';
-                if (lockfile === 'yarn.lock') return 'yarn';
-                if (lockfile === 'pnpm-lock.yaml') return 'pnpm';
-                if (lockfile === 'bun.lockb') return 'bun';
-            } catch (error) {
-                // File not found, continue
+        try {
+            // Get the recursive tree
+            const { data } = await octokit.git.getTree({
+                owner,
+                repo,
+                tree_sha: branch,
+                recursive: 'true',
+            });
+
+            const lockfileNames = {
+                'package-lock.json': 'npm',
+                'yarn.lock': 'yarn',
+                'pnpm-lock.yaml': 'pnpm',
+                'bun.lockb': 'bun',
+            };
+
+            for (const item of data.tree) {
+                if (item.type === 'blob' && item.path) {
+                    const fileName = item.path.split('/').pop();
+                    if (fileName && fileName in lockfileNames) {
+                        lockfiles.push({
+                            path: item.path,
+                            packageManager: lockfileNames[fileName as keyof typeof lockfileNames],
+                        });
+                    }
+                }
             }
+        } catch (error) {
+            console.error('Error detecting lockfiles:', error);
         }
 
-        return null; // No lockfile found
+        return lockfiles;
     }
 }

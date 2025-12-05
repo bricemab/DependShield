@@ -121,15 +121,15 @@ export const useProjectStore = defineStore('project', () => {
         }
     }
 
-    async function detectLockfile(owner: string, repo: string, branch: string): Promise<string | null> {
+    async function detectLockfiles(owner: string, repo: string, branch: string): Promise<{ path: string; packageManager: string }[]> {
         try {
-            const response = await api.get(`${API_URL}/projects/github/detect-lockfile`, {
+            const response = await api.get(`${API_URL}/projects/github/detect-lockfiles`, {
                 params: { owner, repo, branch },
             });
             return response.data;
         } catch (error) {
-            console.error('Failed to detect lockfile', error);
-            return null;
+            console.error('Failed to detect lockfiles', error);
+            return [];
         }
     }
 
@@ -143,7 +143,7 @@ export const useProjectStore = defineStore('project', () => {
         deleteProject,
         fetchRepositories,
         fetchBranches,
-        detectLockfile,
+        detectLockfiles,
         updateProject,
     };
 });

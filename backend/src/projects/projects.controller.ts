@@ -29,14 +29,14 @@ export class ProjectsController {
         return this.projectsService.getGithubBranches(req.user.userId, owner, repo);
     }
 
-    @Get('github/detect-lockfile')
-    detectLockfile(
+    @Get('github/detect-lockfiles')
+    detectLockfiles(
         @Req() req,
         @Query('owner') owner: string,
         @Query('repo') repo: string,
         @Query('branch') branch: string,
     ) {
-        return this.projectsService.detectLockfile(req.user.userId, owner, repo, branch);
+        return this.projectsService.detectLockfiles(req.user.userId, owner, repo, branch);
     }
 
     @Get(':id')

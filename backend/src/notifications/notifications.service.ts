@@ -37,6 +37,7 @@ export class NotificationsService {
             this.logger.log(`Email sent to ${to} for scan ${scan.id}`);
         } catch (error) {
             this.logger.error(`Failed to send email to ${to}`, error);
+            throw error;
         }
     }
 

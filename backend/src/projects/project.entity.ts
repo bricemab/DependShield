@@ -32,6 +32,9 @@ export class Project {
     })
     packageManager: PackageManager;
 
+    @Column({ default: './' })
+    lockfilePath: string;
+
     @Column({ nullable: true })
     cronSchedule: string; // e.g., "0 0 * * *"
 
