@@ -1,11 +1,12 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Octokit } from '@octokit/rest';
 import { Project } from './project.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { UsersService } from '../users/users.service';
+import { GithubProvider } from '../providers/github/github.provider';
+import { GitProvider } from '../providers/interfaces/git-provider.interface';
 
 @Injectable()
 export class ProjectsService {
@@ -13,6 +14,8 @@ export class ProjectsService {
         @InjectRepository(Project)
         private projectsRepository: Repository<Project>,
         private usersService: UsersService,
+        @Inject(GithubProvider)
+        private gitProvider: GitProvider,
     ) { }
 
     async findAll(userId: number): Promise<Project[]> {
@@ -64,30 +67,12 @@ export class ProjectsService {
         console.log('🔍 Fetching GitHub repos for userId:', userId);
         const user = await this.usersService.findOne(userId);
         console.log('👤 User found:', user ? 'YES' : 'NO');
-        if (user) {
-            console.log('🔑 Access token exists:', user.accessToken ? 'YES' : 'NO');
-            if (user.accessToken) {
-                console.log('🔑 Token length:', user.accessToken.length);
-            }
-        }
 
         if (!user || !user.accessToken) {
             throw new ForbiddenException('GitHub access token not found');
         }
 
-        const octokit = new Octokit({ auth: user.accessToken });
-        const { data } = await octokit.repos.listForAuthenticatedUser({
-            sort: 'updated',
-            per_page: 100,
-        });
-
-        return data.map((repo) => ({
-            id: repo.id,
-            name: repo.name,
-            fullName: repo.full_name,
-            url: repo.html_url,
-            private: repo.private,
-        }));
+        return this.gitProvider.getRepositories(user.accessToken);
     }
 
     async getGithubBranches(userId: number, owner: string, repo: string): Promise<any[]> {
@@ -96,13 +81,7 @@ export class ProjectsService {
             throw new ForbiddenException('GitHub access token not found');
         }
 
-        const octokit = new Octokit({ auth: user.accessToken });
-        const { data } = await octokit.repos.listBranches({ owner, repo });
-
-        return data.map((branch) => ({
-            name: branch.name,
-            protected: branch.protected,
-        }));
+        return this.gitProvider.getBranches(user.accessToken, owner, repo);
     }
 
     async detectLockfiles(userId: number, owner: string, repo: string, branch: string): Promise<{ path: string; packageManager: string }[]> {
@@ -111,40 +90,6 @@ export class ProjectsService {
             throw new ForbiddenException('GitHub access token not found');
         }
 
-        const octokit = new Octokit({ auth: user.accessToken });
-        const lockfiles: { path: string; packageManager: string }[] = [];
-
-        try {
-            // Get the recursive tree
-            const { data } = await octokit.git.getTree({
-                owner,
-                repo,
-                tree_sha: branch,
-                recursive: 'true',
-            });
-
-            const lockfileNames = {
-                'package-lock.json': 'npm',
-                'yarn.lock': 'yarn',
-                'pnpm-lock.yaml': 'pnpm',
-                'bun.lockb': 'bun',
-            };
-
-            for (const item of data.tree) {
-                if (item.type === 'blob' && item.path) {
-                    const fileName = item.path.split('/').pop();
-                    if (fileName && fileName in lockfileNames) {
-                        lockfiles.push({
-                            path: item.path,
-                            packageManager: lockfileNames[fileName as keyof typeof lockfileNames],
-                        });
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Error detecting lockfiles:', error);
-        }
-
-        return lockfiles;
+        return this.gitProvider.detectLockfiles(user.accessToken, owner, repo, branch);
     }
 }
