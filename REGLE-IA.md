@@ -24,30 +24,8 @@ Fichier de référence interne pour l’IA
   - `NotificationsModule` : Emails (SMTP).
 - **Queueing** : BullMQ + Redis pour la gestion asynchrone des scans.
 
-### Frontend (Vue 3 + Vite)
-- **Structure** :
-  - `src/layouts` : Layouts (Dashboard, Auth).
-  - `src/views` : Pages principales.
-  - `src/components` : Composants UI (shadcn/ui).
-  - `src/stores` : Pinia (AuthStore, ProjectStore, ScanStore).
-  - `src/locales` : i18n (fr/en).
-- **UI Library** : TailwindCSS + shadcn-vue.
-
-## 3. Backlog (Kanban)
-
-### TODO
-*(Vide)*
-
-### DOING
-*(Vide)*
-
-### ON HOLD
-- [ ] Support GitLab / Bitbucket
-- [ ] Export des rapports (PDF, CSV)
-- [ ] Webhooks (Slack/Discord/Teams)
-- [ ] Tests E2E Frontend (Cypress)
-
-### DONE
+- [x] Gate Email Notifications (Pro+ only).
+- [x] Frontend: Display Plan limits and gate features visually.
 - [x] Abstraction du Provider Git (pour futur GitLab/Bitbucket).
 - [x] Tests unitaires et E2E plus complets.
 - [x] Initialiser le repository Git et la structure Git Flow (branches main, develop).

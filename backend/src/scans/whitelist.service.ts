@@ -1,13 +1,17 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, Inject, forwardRef, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WhitelistRule } from './whitelist-rule.entity';
+import { ProjectsService } from '../projects/projects.service';
+import { UserPlan } from '../users/user.entity';
 
 @Injectable()
 export class WhitelistService {
     constructor(
         @InjectRepository(WhitelistRule)
         private whitelistRepository: Repository<WhitelistRule>,
+        @Inject(forwardRef(() => ProjectsService))
+        private projectsService: ProjectsService,
     ) { }
 
     async findAllByProject(projectId: number): Promise<WhitelistRule[]> {
@@ -15,6 +19,14 @@ export class WhitelistService {
     }
 
     async create(projectId: number, data: Partial<WhitelistRule>): Promise<WhitelistRule> {
+        // SaaS Check
+        const project = await this.projectsService.findOneById(projectId);
+        const userPlan = project.user?.plan || UserPlan.STARTER;
+
+        if (userPlan === UserPlan.STARTER) {
+            throw new BadRequestException('Whitelist management is only available on PRO and ENTERPRISE plans.');
+        }
+
         const rule = this.whitelistRepository.create({
             ...data,
             projectId,
@@ -23,6 +35,14 @@ export class WhitelistService {
     }
 
     async remove(id: number, projectId: number): Promise<void> {
+        // SaaS Check
+        const project = await this.projectsService.findOneById(projectId);
+        const userPlan = project.user?.plan || UserPlan.STARTER;
+
+        if (userPlan === UserPlan.STARTER) {
+            throw new BadRequestException('Whitelist management is only available on PRO and ENTERPRISE plans.');
+        }
+
         const rule = await this.whitelistRepository.findOne({ where: { id, projectId } });
         if (!rule) {
             throw new NotFoundException(`Whitelist rule ${id} not found`);

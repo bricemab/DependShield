@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { RouterView } from 'vue-router';
 import { onMounted } from 'vue';
+import Toaster from './components/ui/Sonner.vue';
+import 'vue-sonner/style.css';
 
 onMounted(() => {
   // Apply saved theme on mount
@@ -13,4 +15,5 @@ onMounted(() => {
 
 <template>
   <RouterView />
+  <Toaster />
 </template>

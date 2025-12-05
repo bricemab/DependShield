@@ -25,6 +25,9 @@ export class Project {
     @Column()
     branch: string;
 
+    @Column({ default: false })
+    isPrivate: boolean;
+
     @Column({
         type: 'enum',
         enum: PackageManager,

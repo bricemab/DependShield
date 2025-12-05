@@ -1,5 +1,10 @@
 <script setup lang="ts">
 import { FolderGit2, LayoutDashboard, ShieldAlert, Settings, BookOpen } from 'lucide-vue-next';
+import LanguageSwitcher from './LanguageSwitcher.vue';
+import ThemeToggle from './ThemeToggle.vue';
+import { useAuthStore } from '../stores/auth';
+
+const authStore = useAuthStore();
 </script>
 
 <template>
@@ -13,6 +18,9 @@ import { FolderGit2, LayoutDashboard, ShieldAlert, Settings, BookOpen } from 'lu
         <div>
           <h1 class="text-lg font-bold">DependShield</h1>
           <p class="text-xs text-muted-foreground">Vulnerability Scanner</p>
+          <span v-if="authStore.user" class="text-[10px] uppercase font-bold px-1.5 py-0.5 rounded bg-primary/10 text-primary mt-1 inline-block">
+            {{ authStore.user.plan }} PLAN
+          </span>
         </div>
       </div>
     </div>
@@ -64,8 +72,13 @@ import { FolderGit2, LayoutDashboard, ShieldAlert, Settings, BookOpen } from 'lu
           <BookOpen class="w-4 h-4" />
           Documentation
         </a>
-      </div>
-    </nav>
+      </div>    </nav>
+
+    <!-- App Controls -->
+    <div class="px-4 py-2 border-t flex items-center justify-between">
+      <LanguageSwitcher />
+      <ThemeToggle />
+    </div>
 
     <!-- User Section -->
     <div class="p-4 border-t">

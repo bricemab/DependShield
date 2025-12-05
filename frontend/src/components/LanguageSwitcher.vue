@@ -8,16 +8,15 @@ const toggleLanguage = () => {
   locale.value = locale.value === 'en' ? 'fr' : 'en';
 };
 
-const currentFlag = computed(() => locale.value === 'en' ? '🇬🇧' : '🇫🇷');
+const currentLang = computed(() => locale.value === 'en' ? 'EN' : 'FR');
 </script>
 
 <template>
   <button
     @click="toggleLanguage"
     class="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-accent hover:text-accent-foreground transition-colors"
-    title="Switch Language"
+    :title="locale === 'en' ? 'Passer en français' : 'Switch to English'"
   >
-    <span class="text-lg">{{ currentFlag }}</span>
-    <span class="text-sm font-medium uppercase">{{ locale }}</span>
+    <span class="text-sm font-medium font-mono">{{ currentLang }}</span>
   </button>
 </template>

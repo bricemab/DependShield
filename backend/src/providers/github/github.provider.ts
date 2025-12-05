@@ -24,6 +24,16 @@ export class GithubProvider implements GitProvider {
         }));
     }
 
+    async getRepositoryMetadata(accessToken: string, owner: string, repo: string): Promise<{ private: boolean }> {
+        if (!accessToken) {
+            throw new ForbiddenException('GitHub access token not found');
+        }
+
+        const octokit = new Octokit({ auth: accessToken });
+        const { data } = await octokit.repos.get({ owner, repo });
+        return { private: data.private };
+    }
+
     async getBranches(accessToken: string, owner: string, repo: string): Promise<GitBranch[]> {
         if (!accessToken) {
             throw new ForbiddenException('GitHub access token not found');

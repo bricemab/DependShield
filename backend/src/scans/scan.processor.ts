@@ -152,11 +152,33 @@ export class ScanProcessor {
         }
 
         try {
-            const { stdout } = await execAsync(command, { cwd: dir, timeout: 60000 });
+            this.logger.log(`Executing command '${command}' in directory '${dir}'`);
+
+            // If dir points to a file, get the directory
+            let cwd = dir;
+            if (fs.existsSync(dir) && fs.lstatSync(dir).isFile()) {
+                cwd = path.dirname(dir);
+                this.logger.log(`Corrected cwd from file to directory: '${cwd}'`);
+            } else if (!fs.existsSync(dir)) {
+                this.logger.error(`Directory '${dir}' does not exist!`);
+            }
+
+            const { stdout } = await execAsync(command, {
+                cwd,
+                timeout: 60000,
+                maxBuffer: 50 * 1024 * 1024 // 50MB buffer
+            });
+            this.logger.log(`Audit command executed successfully (0 vulnerabilities)`);
             return stdout;
         } catch (error) {
             // npm audit returns non-zero exit code when vulnerabilities are found
-            return error.stdout || '{}';
+            if (error.stdout) {
+                this.logger.log(`Audit finished with exit code ${error.code} (vulnerabilities found). Parsing output...`);
+                return error.stdout;
+            }
+
+            this.logger.error(`Audit command failed completely: ${error.message}`);
+            return '{}';
         }
     }
 

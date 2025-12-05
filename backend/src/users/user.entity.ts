@@ -1,5 +1,12 @@
 import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 
+
+export enum UserPlan {
+    STARTER = 'STARTER',
+    PRO = 'PRO',
+    ENTERPRISE = 'ENTERPRISE',
+}
+
 @Entity('users')
 export class User {
     @PrimaryGeneratedColumn()
@@ -16,6 +23,13 @@ export class User {
 
     @Column({ nullable: true })
     avatarUrl: string;
+
+    @Column({
+        type: 'enum',
+        enum: UserPlan,
+        default: UserPlan.STARTER
+    })
+    plan: UserPlan;
 
     @Column({ nullable: true, select: false }) // Encrypted access token, do not select by default
     accessToken: string;

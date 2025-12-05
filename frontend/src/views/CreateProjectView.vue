@@ -1,17 +1,24 @@
-import { ref, onMounted, computed } from 'vue';
+<script setup lang="ts">
+import { ref, onMounted, computed, type Ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
-import { ArrowLeft, Check, Search, Lock, Globe, GitBranch } from 'lucide-vue-next';
+import { useAuthStore } from '../stores/auth';
+import { ArrowLeft, Check, Search, Lock, Globe, GitBranch, Crown } from 'lucide-vue-next';
+import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
-import ThemeToggle from '../components/ThemeToggle.vue';
-import LanguageSwitcher from '../components/LanguageSwitcher.vue';
+
 import DashboardLayout from '../layouts/DashboardLayout.vue';
+import cronstrue from 'cronstrue/i18n';
+import { useI18n } from 'vue-i18n';
+
+const { locale } = useI18n();
 
 const router = useRouter();
 const projectStore = useProjectStore();
+const authStore = useAuthStore();
 
 const step = ref(1);
 const formData = ref({
@@ -19,17 +26,28 @@ const formData = ref({
   repositoryUrl: '',
   repositoryName: '',
   branch: '',
+  isPrivate: false,
   packageManager: 'npm',
   cronSchedule: '0 0 * * *',
   emailEnabled: false,
   lockfilePath: './',
 });
 
-const selectedRepo = ref<any>(null);
-const detectedLockfiles = ref<{ path: string; packageManager: string }[]>([]);
+const selectedRepo = ref(null);
+const detectedLockfiles = ref([]) as Ref<{ path: string; packageManager: string }[]>;
 
 const repoSearchQuery = ref('');
 const branchSearchQuery = ref('');
+
+// Plan limits
+const canUsePrivateRepos = computed(() => {
+    return authStore.user?.plan === 'PRO' || authStore.user?.plan === 'ENTERPRISE';
+});
+
+const canEnableEmail = computed(() => {
+    return authStore.user?.plan === 'PRO' || authStore.user?.plan === 'ENTERPRISE';
+});
+
 
 const filteredRepositories = computed(() => {
   let repos = [...projectStore.repositories]; // Create a copy to avoid mutating store state if sort does in-place
@@ -47,13 +65,10 @@ const filteredBranches = computed(() => {
     branches = branches.filter(b => b.name.toLowerCase().includes(query));
   }
   return branches.sort((a, b) => a.name.localeCompare(b.name));
-  return branches.sort((a, b) => a.name.localeCompare(b.name));
+
 });
 
-import cronstrue from 'cronstrue/i18n';
-import { useI18n } from 'vue-i18n';
 
-const { locale } = useI18n();
 
 const cronDescription = computed(() => {
   try {
@@ -68,10 +83,18 @@ onMounted(() => {
 });
 
 const selectRepository = async (repo: any) => {
+  if (repo.private && !canUsePrivateRepos.value) {
+      toast.info('Feature Restricted', {
+          description: 'Upgrade to PRO to monitor private repositories.',
+      });
+      return;
+  }
+
   selectedRepo.value = repo;
   formData.value.repositoryUrl = repo.url;
   formData.value.repositoryName = repo.fullName;
   formData.value.name = repo.name;
+  formData.value.isPrivate = repo.private;
   
   const [owner, repoName] = repo.fullName.split('/');
   await projectStore.fetchBranches(owner, repoName);
@@ -101,9 +124,12 @@ const selectLockfile = (lockfile: { path: string; packageManager: string }) => {
 const handleSubmit = async () => {
   try {
     await projectStore.createProject(formData.value);
+    toast.success('Project created successfully');
     router.push('/projects');
-  } catch (error) {
-    alert('Failed to create project');
+  } catch (error: any) {
+    toast.error('Failed to create project', {
+        description: error.response?.data?.message || error.message,
+    });
   }
 };
 
@@ -124,21 +150,18 @@ const goBack = () => {
 
 <template>
   <DashboardLayout>
-    <div class="p-8">
+    <div class="p-8 h-full flex flex-col">
       <!-- Header -->
-      <div class="flex justify-between items-center mb-8">
+      <div class="flex justify-between items-center mb-8 shrink-0">
         <div>
           <h2 class="text-3xl font-bold tracking-tight">{{ $t('create_project.title') }}</h2>
           <p class="text-muted-foreground mt-1">Step {{ step }} of 4</p>
         </div>
-        <div class="flex items-center gap-2">
-          <LanguageSwitcher />
-          <ThemeToggle />
-        </div>
+
       </div>
 
         <!-- Progress -->
-        <div class="flex items-center gap-4 mb-8">
+        <div class="flex items-center gap-4 mb-8 shrink-0">
           <div class="flex items-center gap-2 cursor-pointer" @click="goToStep(1)">
             <div :class="step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors hover:opacity-80">
               <Check v-if="step > 1" class="w-4 h-4" />
@@ -170,7 +193,7 @@ const goBack = () => {
         </div>
 
         <!-- Step 1: Select Repository -->
-        <Card v-if="step === 1" class="h-full flex flex-col">
+        <Card v-if="step === 1" class="flex-1 min-h-0 flex flex-col">
           <CardHeader>
             <CardTitle>{{ $t('create_project.step_1_title') }}</CardTitle>
             <div class="mt-4 relative">
@@ -188,7 +211,7 @@ const goBack = () => {
               <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
 
-            <div v-else class="flex-1 overflow-y-auto pr-2 space-y-2 max-h-[400px]">
+            <div v-else class="flex-1 overflow-y-auto pr-2 space-y-2">
               <div v-if="filteredRepositories.length === 0" class="text-center py-8 text-muted-foreground">
                 {{ $t('create_project.no_repos') }}
               </div>
@@ -197,6 +220,7 @@ const goBack = () => {
                 :key="repo.id"
                 @click="selectRepository(repo)"
                 class="group p-4 border rounded-lg cursor-pointer hover:border-primary hover:bg-accent/50 transition-all duration-200"
+                :class="{'opacity-60 cursor-not-allowed': repo.private && !canUsePrivateRepos}"
               >
                 <div class="flex justify-between items-center">
                   <div class="flex items-center gap-3">
@@ -205,11 +229,16 @@ const goBack = () => {
                         <Globe v-else class="w-4 h-4 text-muted-foreground" />
                     </div>
                     <div>
-                      <h3 class="font-medium group-hover:text-primary transition-colors">{{ repo.fullName }}</h3>
+                      <h3 class="font-medium group-hover:text-primary transition-colors flex items-center gap-2">
+                          {{ repo.fullName }}
+                          <span v-if="repo.private && !canUsePrivateRepos" class="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded flex items-center gap-1">
+                              <Crown class="w-3 h-3" /> PRO
+                          </span>
+                      </h3>
                       <p class="text-xs text-muted-foreground">{{ repo.private ? 'Private' : 'Public' }}</p>
                     </div>
                   </div>
-                  <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div class="opacity-0 group-hover:opacity-100 transition-opacity" v-if="!repo.private || canUsePrivateRepos">
                       <span class="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded">{{ $t('create_project.select') }}</span>
                   </div>
                 </div>
@@ -218,7 +247,7 @@ const goBack = () => {
 
             <button
               @click="goBack"
-              class="mt-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+              class="mt-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground shrink-0"
             >
               <ArrowLeft class="w-4 h-4" />
               {{ $t('project_detail.back_to_projects') }}
@@ -227,7 +256,7 @@ const goBack = () => {
         </Card>
 
         <!-- Step 2: Select Branch -->
-        <Card v-if="step === 2" class="h-full flex flex-col">
+        <Card v-if="step === 2" class="flex-1 min-h-0 flex flex-col">
           <CardHeader>
             <CardTitle>{{ $t('create_project.step_2_title') }}</CardTitle>
             <p class="text-sm text-muted-foreground mt-1">{{ $t('projects.columns.repository') }}: {{ formData.repositoryName }}</p>
@@ -246,7 +275,7 @@ const goBack = () => {
               <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
 
-            <div v-else class="flex-1 overflow-y-auto pr-2 space-y-2 max-h-[400px]">
+            <div v-else class="flex-1 overflow-y-auto pr-2 space-y-2">
               <div v-if="filteredBranches.length === 0" class="text-center py-8 text-muted-foreground">
                 {{ $t('create_project.no_branches') }}
               </div>
@@ -284,7 +313,7 @@ const goBack = () => {
         </Card>
 
         <!-- Step 3: Select Lockfile (New Step) -->
-        <Card v-if="step === 3">
+        <Card v-if="step === 3" class="flex-1 min-h-0 flex flex-col">
           <CardHeader>
             <CardTitle>{{ $t('create_project.step_3_title') }}</CardTitle>
             <p class="text-sm text-muted-foreground mt-1">{{ $t('create_project.step_3_desc') }}</p>
@@ -304,17 +333,32 @@ const goBack = () => {
               <div
                 v-for="lockfile in detectedLockfiles"
                 :key="lockfile.path"
-                @click="selectLockfile(lockfile)"
+                @click="(() => {
+                    const isNested = lockfile.path.includes('/');
+                    if (isNested && !canUsePrivateRepos) {
+                         toast.info('Feature Restricted', { description: 'Monorepo support (nested lockfiles) is a PRO feature.' });
+                         return;
+                    }
+                    selectLockfile(lockfile);
+                })()"
                 class="p-4 border rounded-lg cursor-pointer hover:border-primary hover:bg-accent transition-colors"
+                :class="{'opacity-60 cursor-not-allowed': lockfile.path.includes('/') && !canUsePrivateRepos}"
               >
                 <div class="flex justify-between items-center">
                   <div>
-                    <h3 class="font-medium">{{ lockfile.path }}</h3>
+                    <h3 class="font-medium flex items-center gap-2">
+                        {{ lockfile.path }}
+                        <span v-if="lockfile.path.includes('/') && !canUsePrivateRepos" class="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded flex items-center gap-1">
+                              <Crown class="w-3 h-3" /> PRO
+                        </span>
+                    </h3>
                     <p class="text-sm text-muted-foreground">{{ $t('create_project.detected') }}: {{ lockfile.packageManager }}</p>
                   </div>
-                  <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                  </svg>
+                  <div v-if="!(lockfile.path.includes('/') && !canUsePrivateRepos)">
+                      <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                      </svg>
+                  </div>
                 </div>
               </div>
             </div>
@@ -330,7 +374,7 @@ const goBack = () => {
         </Card>
 
         <!-- Step 4: Configure -->
-        <Card v-if="step === 4">
+        <Card v-if="step === 4" class="flex-1 min-h-0 flex flex-col">
           <CardHeader>
             <CardTitle>{{ $t('create_project.step_4_title') }}</CardTitle>
           </CardHeader>
@@ -387,10 +431,14 @@ const goBack = () => {
                   v-model="formData.emailEnabled"
                   type="checkbox"
                   id="emailEnabled"
-                  class="w-4 h-4 rounded border-gray-300"
+                  :disabled="!canEnableEmail"
+                  class="w-4 h-4 rounded border-gray-300 disabled:opacity-50"
                 />
-                <label for="emailEnabled" class="text-sm">
+                <label for="emailEnabled" class="text-sm flex items-center gap-2">
                   {{ $t('project_detail.enable_email') }}
+                  <span v-if="!canEnableEmail" class="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      <Crown class="w-3 h-3" /> PRO
+                  </span>
                 </label>
               </div>
 
@@ -413,6 +461,6 @@ const goBack = () => {
           </CardContent>
         </Card>
       </div>
-    </main>
+
   </DashboardLayout>
 </template>

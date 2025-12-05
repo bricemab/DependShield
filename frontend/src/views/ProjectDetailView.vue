@@ -4,12 +4,12 @@ import { useRoute, useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
 import { useScanStore } from '../stores/scan';
 import { Play, ArrowLeft, FileText, Shield, Package2, ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
-import ThemeToggle from '../components/ThemeToggle.vue';
-import LanguageSwitcher from '../components/LanguageSwitcher.vue';
+
 import DashboardLayout from '../layouts/DashboardLayout.vue';
 
 const route = useRoute();
@@ -67,10 +67,13 @@ const checkPolling = () => {
 const handleTriggerScan = async () => {
   try {
     await scanStore.triggerScan(projectId.value);
+    toast.success('Scan triggered successfully');
     await scanStore.fetchScans(projectId.value);
     startPolling();
-  } catch (error) {
-    alert('Failed to trigger scan');
+  } catch (error: any) {
+    toast.error('Failed to trigger scan', {
+        description: error.response?.data?.message || 'Cooldowned active?'
+    });
   }
 };
 
@@ -118,9 +121,9 @@ const handleUpdateSettings = async () => {
   isSettingsLoading.value = true;
   try {
     await projectStore.updateProject(project.value.id, settingsForm.value);
-    alert('Settings updated successfully');
+    toast.success('Settings updated successfully');
   } catch (error) {
-    alert('Failed to update settings');
+    toast.error('Failed to update settings');
   } finally {
     isSettingsLoading.value = false;
   }
@@ -144,8 +147,7 @@ const handleUpdateSettings = async () => {
           <p class="text-muted-foreground">{{ project?.repositoryName }} • {{ project?.branch }}</p>
         </div>
         <div class="flex items-center gap-2">
-          <LanguageSwitcher />
-          <ThemeToggle />
+
           <button
             @click="handleTriggerScan"
             :disabled="scanStore.loading"
@@ -323,7 +325,6 @@ const handleUpdateSettings = async () => {
             </form>
           </CardContent>
         </Card>
-      </div>
-    </main>
+    </div>
   </DashboardLayout>
 </template>

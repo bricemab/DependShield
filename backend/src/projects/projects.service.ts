@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException, ForbiddenException, Inject } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, Inject, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Project } from './project.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { UsersService } from '../users/users.service';
+import { UserPlan } from '../users/user.entity';
 import { GithubProvider } from '../providers/github/github.provider';
 import { GitProvider } from '../providers/interfaces/git-provider.interface';
 
@@ -45,6 +46,67 @@ export class ProjectsService {
     }
 
     async create(createProjectDto: CreateProjectDto, userId: number): Promise<Project> {
+        const user = await this.usersService.findOne(userId);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        // 1. Quota Check
+        const projectCount = await this.projectsRepository.count({ where: { userId } });
+        let maxProjects = 3; // Starter
+        if (user.plan === UserPlan.PRO) maxProjects = 20;
+        if (user.plan === UserPlan.ENTERPRISE) maxProjects = 9999;
+
+        if (projectCount >= maxProjects) {
+            throw new BadRequestException(`Plan limit reached. Your plan (${user.plan}) allows a maximum of ${maxProjects} projects.`);
+        }
+
+        // 2. Private Repo Check
+        // Verify visibility with Git Provider to prevent bypass
+        if (createProjectDto.repositoryName && createProjectDto.repositoryName.includes('/')) {
+            try {
+                // Split "owner/repo"
+                const [owner, repoName] = createProjectDto.repositoryName.split('/');
+                const repoMetadata = await this.gitProvider.getRepositoryMetadata(user.accessToken, owner, repoName);
+
+                // Enforce truth: if Git says private, we treat it as private regardless of DTO
+                if (repoMetadata.private) {
+                    if (user.plan === UserPlan.STARTER) {
+                        throw new BadRequestException('Private repositories are only supported on PRO and ENTERPRISE plans.');
+                    }
+                    // Force DTO to match reality
+                    createProjectDto.isPrivate = true;
+                }
+            } catch (error) {
+                // If we can't fetch metadata, we might fail safe or warn. 
+                // For now, if we can't verify, we fall back to DTO but log it? 
+                // Or better, fail if we suspect foul play. 
+                // Let's rely on DTO if fetch fails (e.g. network) BUT if it succeeds we enforce.
+                console.warn(`Could not verify repo metadata for ${createProjectDto.repositoryName}:`, error);
+            }
+        }
+
+        // Fallback check on DTO (in case fetch failed or wasn't run)
+        if (createProjectDto.isPrivate) {
+            if (user.plan === UserPlan.STARTER) {
+                throw new BadRequestException('Private repositories are only supported on PRO and ENTERPRISE plans.');
+            }
+        }
+
+        // 3. Monorepo (Lockfile) Check
+        if (createProjectDto.lockfilePath) {
+            const isRoot = createProjectDto.lockfilePath === './' || createProjectDto.lockfilePath === './package-lock.json' || createProjectDto.lockfilePath === './yarn.lock' || createProjectDto.lockfilePath === './pnpm-lock.yaml' || createProjectDto.lockfilePath === './bun.lockb';
+
+            // Check if path contains more than one segment (e.g. backend/package.json)
+            // Simple heuristic: if it has a slash that isn't just start './'
+            const normalizedPath = createProjectDto.lockfilePath.replace(/^\.\//, '');
+            const isNested = normalizedPath.includes('/');
+
+            if (isNested && user.plan === UserPlan.STARTER) {
+                throw new BadRequestException('Monorepo support (nested lockfiles) is only available on PRO and ENTERPRISE plans.');
+            }
+        }
+
         const project = this.projectsRepository.create({
             ...createProjectDto,
             userId,
@@ -53,7 +115,16 @@ export class ProjectsService {
     }
 
     async update(id: number, updateProjectDto: UpdateProjectDto, userId: number): Promise<Project> {
+        const user = await this.usersService.findOne(userId);
         const project = await this.findOne(id, userId);
+
+        // 4. Email Features Check
+        if (updateProjectDto.emailEnabled === true) {
+            if (user.plan === UserPlan.STARTER) {
+                throw new BadRequestException('Email notifications are only supported on PRO and ENTERPRISE plans.');
+            }
+        }
+
         this.projectsRepository.merge(project, updateProjectDto);
         return this.projectsRepository.save(project);
     }
@@ -64,9 +135,7 @@ export class ProjectsService {
     }
 
     async getGithubRepositories(userId: number): Promise<any[]> {
-        console.log('🔍 Fetching GitHub repos for userId:', userId);
         const user = await this.usersService.findOne(userId);
-        console.log('👤 User found:', user ? 'YES' : 'NO');
 
         if (!user || !user.accessToken) {
             throw new ForbiddenException('GitHub access token not found');

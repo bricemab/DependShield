@@ -18,6 +18,10 @@ export class CreateProjectDto {
     @IsNotEmpty()
     branch: string;
 
+    @IsBoolean()
+    @IsOptional()
+    isPrivate?: boolean;
+
     @IsEnum(PackageManager)
     packageManager: PackageManager;
 

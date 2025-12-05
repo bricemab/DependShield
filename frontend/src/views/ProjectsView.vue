@@ -7,8 +7,7 @@ import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
-import ThemeToggle from '../components/ThemeToggle.vue';
-import LanguageSwitcher from '../components/LanguageSwitcher.vue';
+
 import DashboardLayout from '../layouts/DashboardLayout.vue';
 
 const router = useRouter();
@@ -44,8 +43,7 @@ const handleDeleteProject = async (id: number, event: Event) => {
           <p class="text-muted-foreground mt-1">{{ $t('projects.subtitle') }}</p>
         </div>
         <div class="flex items-center gap-2">
-          <LanguageSwitcher />
-          <ThemeToggle />
+
           <button
             @click="handleCreateProject"
             class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 gap-2"

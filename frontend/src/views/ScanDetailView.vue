@@ -2,7 +2,8 @@
 import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useScanStore } from '../stores/scan';
-import { ArrowLeft, AlertTriangle, Eye, EyeOff } from 'lucide-vue-next';
+import { useAuthStore } from '../stores/auth';
+import { ArrowLeft, AlertTriangle, Eye, EyeOff, Crown } from 'lucide-vue-next';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
@@ -14,6 +15,11 @@ import DashboardLayout from '../layouts/DashboardLayout.vue';
 const route = useRoute();
 const router = useRouter();
 const scanStore = useScanStore();
+const authStore = useAuthStore();
+
+const canManageWhitelist = computed(() => {
+    return authStore.user?.plan === 'PRO' || authStore.user?.plan === 'ENTERPRISE';
+});
 
 const scanId = computed(() => parseInt(route.params.id as string));
 const selectedSeverity = ref<string>('all');
@@ -271,17 +277,23 @@ const handleUnignore = async (vuln: any) => {
                   <button
                     v-if="!vuln.whitelisted"
                     @click="handleIgnore(vuln)"
-                    class="p-2 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                    :disabled="!canManageWhitelist"
+                    :class="!canManageWhitelist ? 'opacity-50 cursor-not-allowed' : 'hover:bg-secondary hover:text-foreground'"
+                    class="p-2 rounded-md transition-colors text-muted-foreground relative group"
                     title="Ignore this vulnerability"
                   >
+                    <Crown v-if="!canManageWhitelist" class="w-3 h-3 absolute -top-1 -right-1 text-amber-500" />
                     <EyeOff class="w-4 h-4" />
                   </button>
                   <button
                     v-else
                     @click="handleUnignore(vuln)"
-                    class="p-2 rounded-md hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
+                    :disabled="!canManageWhitelist"
+                    :class="!canManageWhitelist ? 'opacity-50 cursor-not-allowed' : 'hover:bg-secondary hover:text-foreground'"
+                    class="p-2 rounded-md transition-colors text-muted-foreground group relative"
                     title="Un-ignore this vulnerability"
                   >
+                    <Crown v-if="!canManageWhitelist" class="w-3 h-3 absolute -top-1 -right-1 text-amber-500" />
                     <Eye class="w-4 h-4" />
                   </button>
                 </div>
@@ -311,6 +323,6 @@ const handleUnignore = async (vuln: any) => {
           </div>
         </div>
       </div>
-    </main>
+
   </DashboardLayout>
 </template>
