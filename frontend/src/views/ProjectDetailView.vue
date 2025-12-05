@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
 import { useScanStore } from '../stores/scan';
-import { FolderGit2, Play, ArrowLeft, FileText, Shield, Package2 } from 'lucide-vue-next';
+import { FolderGit2, Play, ArrowLeft, FileText, Shield, Package2, ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
@@ -33,11 +33,16 @@ onUnmounted(() => {
 
 let pollInterval: any = null;
 
+const handlePageChange = async (page: number) => {
+  if (page < 1 || page > scanStore.pagination.totalPages) return;
+  await scanStore.fetchScans(projectId.value, false, page);
+};
+
 const startPolling = () => {
   if (pollInterval) return;
   
   pollInterval = setInterval(async () => {
-    await scanStore.fetchScans(projectId.value, true);
+    await scanStore.fetchScans(projectId.value, true, scanStore.pagination.page);
     checkPolling();
   }, 5000);
 };
@@ -201,7 +206,7 @@ const handleUpdateSettings = async () => {
               <FileText class="w-4 h-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div class="text-2xl font-bold">{{ scanStore.scans.length }}</div>
+              <div class="text-2xl font-bold">{{ scanStore.pagination.total }}</div>
             </CardContent>
           </Card>
 
@@ -232,58 +237,91 @@ const handleUpdateSettings = async () => {
             <CardTitle>{{ $t('project_detail.scan_history') }}</CardTitle>
           </CardHeader>
           <CardContent>
-            <div v-if="scanStore.loading" class="flex items-center justify-center py-12">
-              <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-            </div>
+            <div class="relative min-h-[200px]">
+              <div v-if="scanStore.loading && scanStore.scans.length === 0" class="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+              </div>
+              
+              <div v-if="scanStore.loading && scanStore.scans.length > 0" class="absolute inset-0 flex items-center justify-center bg-background/20 z-10 backdrop-blur-[1px]">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
 
-            <div v-else-if="scanStore.scans.length === 0" class="text-center py-12">
-              <p class="text-muted-foreground mb-4">{{ $t('project_detail.no_scans') }}</p>
-              <button
-                @click="handleTriggerScan"
-                class="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
-              >
-                {{ $t('project_detail.run_first_scan') }}
-              </button>
-            </div>
+              <div v-if="!scanStore.loading && scanStore.scans.length === 0" class="text-center py-12">
+                <p class="text-muted-foreground mb-4">{{ $t('project_detail.no_scans') }}</p>
+                <button
+                  @click="handleTriggerScan"
+                  class="inline-flex items-center justify-center rounded-md text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+                >
+                  {{ $t('project_detail.run_first_scan') }}
+                </button>
+              </div>
 
-            <div v-else class="overflow-x-auto">
-              <table class="w-full">
-                <thead>
-                  <tr class="border-b">
-                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">ID</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('common.status') }}</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('projects.columns.vulnerabilities') }}</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('projects.columns.score') }}</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('project_detail.cron_schedule') }}</th>
-                    <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('common.actions') }}</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y">
-                  <tr v-for="scan in scanStore.scans" :key="scan.id" class="hover:bg-muted/50">
-                    <td class="px-4 py-3 text-sm font-mono">#{{ scan.id }}</td>
-                    <td class="px-4 py-3">
-                      <span :class="getStatusColor(scan.status)" class="px-2 py-1 rounded-md text-xs font-medium border inline-flex items-center gap-2">
-                        <div v-if="scan.status === 'running'" class="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
-                        {{ scan.status }}
-                      </span>
-                    </td>
-                    <td class="px-4 py-3 text-sm">{{ scan.vulnerabilitiesCount || 0 }}</td>
-                    <td class="px-4 py-3 text-sm font-bold">{{ scan.score?.toFixed(1) || 'N/A' }}</td>
-                    <td class="px-4 py-3 text-sm text-muted-foreground">{{ formatDate(scan.startedAt) }}</td>
-                    <td class="px-4 py-3">
-                      <button
-                        @click="router.push(`/scans/${scan.id}`)"
-                        class="text-sm text-primary hover:underline"
-                      >
-                        {{ $t('common.actions') }} →
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <div v-else class="overflow-x-auto" :class="{ 'opacity-50': scanStore.loading }">
+                <table class="w-full">
+                  <thead>
+                    <tr class="border-b">
+                      <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">ID</th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('common.status') }}</th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('projects.columns.vulnerabilities') }}</th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('projects.columns.score') }}</th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('project_detail.cron_schedule') }}</th>
+                      <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase">{{ $t('common.actions') }}</th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y">
+                    <tr v-for="scan in scanStore.scans" :key="scan.id" class="hover:bg-muted/50 transition-colors">
+                      <td class="px-4 py-3 text-sm font-mono">#{{ scan.id }}</td>
+                      <td class="px-4 py-3">
+                        <span :class="getStatusColor(scan.status)" class="px-2 py-1 rounded-md text-xs font-medium border inline-flex items-center gap-2">
+                          <div v-if="scan.status === 'running'" class="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+                          {{ scan.status }}
+                        </span>
+                      </td>
+                      <td class="px-4 py-3 text-sm">{{ scan.vulnerabilitiesCount || 0 }}</td>
+                      <td class="px-4 py-3 text-sm font-bold">{{ scan.score?.toFixed(1) || 'N/A' }}</td>
+                      <td class="px-4 py-3 text-sm text-muted-foreground">{{ formatDate(scan.startedAt) }}</td>
+                      <td class="px-4 py-3">
+                        <button
+                          @click="router.push(`/scans/${scan.id}`)"
+                          class="text-sm text-primary hover:underline"
+                        >
+                          {{ $t('common.actions') }} →
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </CardContent>
         </Card>
+
+        <!-- Pagination -->
+        <div class="flex items-center justify-between mt-4">
+          <p class="text-sm text-muted-foreground">
+            {{ $t('common.showing') }} {{ (scanStore.pagination.page - 1) * scanStore.pagination.limit + 1 }} 
+            {{ $t('common.to') }} {{ Math.min(scanStore.pagination.page * scanStore.pagination.limit, scanStore.pagination.total) }} 
+            {{ $t('common.of') }} {{ scanStore.pagination.total }} {{ $t('common.results') }}
+          </p>
+          <div class="flex items-center gap-2">
+            <button
+              @click="handlePageChange(scanStore.pagination.page - 1)"
+              :disabled="scanStore.pagination.page === 1"
+              class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
+            >
+              <ChevronLeft class="w-4 h-4" />
+              {{ $t('common.previous') }}
+            </button>
+            <button
+              @click="handlePageChange(scanStore.pagination.page + 1)"
+              :disabled="scanStore.pagination.page === scanStore.pagination.totalPages"
+              class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3"
+            >
+              {{ $t('common.next') }}
+              <ChevronRight class="w-4 h-4" />
+            </button>
+          </div>
+        </div>
 
         <!-- Configuration -->
         <Card class="mt-8">

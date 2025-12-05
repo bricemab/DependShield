@@ -52,11 +52,27 @@ export const useScanStore = defineStore('scan', () => {
         }
     }
 
-    async function fetchScans(projectId: number, background = false) {
+    const pagination = ref({
+        page: 1,
+        limit: 10,
+        total: 0,
+        totalPages: 0,
+    });
+
+    async function fetchScans(projectId: number, background = false, page = 1, limit = 10) {
         if (!background) loading.value = true;
         try {
-            const response = await axios.get(`${API_URL}/scans/project/${projectId}`, getHeaders());
-            scans.value = response.data;
+            const response = await axios.get(`${API_URL}/scans/project/${projectId}`, {
+                ...getHeaders(),
+                params: { page, limit },
+            });
+            scans.value = response.data.data;
+            pagination.value = {
+                page: response.data.page,
+                limit: response.data.limit,
+                total: response.data.total,
+                totalPages: response.data.totalPages,
+            };
         } catch (error) {
             console.error('Failed to fetch scans', error);
         } finally {
@@ -129,5 +145,6 @@ export const useScanStore = defineStore('scan', () => {
         fetchScanDetails,
         ignoreVulnerability,
         unignoreVulnerability,
+        pagination,
     };
 });

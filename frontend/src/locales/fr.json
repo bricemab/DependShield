@@ -13,13 +13,12 @@
         "actions": "Actions",
         "status": "Statut",
         "created_at": "Créé le",
-        "updated_at": "Mis à jour le",
-        "search": "Rechercher...",
-        "filter": "Filtrer",
-        "all": "Tous",
-        "none": "Aucun",
-        "yes": "Oui",
-        "no": "Non"
+        "showing": "Affichage de",
+        "to": "à",
+        "of": "sur",
+        "results": "résultats",
+        "previous": "Précédent",
+        "next": "Suivant"
     },
     "auth": {
         "login_title": "Bon retour",

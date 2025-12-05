@@ -47,12 +47,23 @@ export class ScansService {
         return scan;
     }
 
-    async findAll(projectId: number, userId: number): Promise<Scan[]> {
+    async findAll(projectId: number, userId: number, page: number = 1, limit: number = 10): Promise<{ data: Scan[], total: number, page: number, limit: number, totalPages: number }> {
         await this.projectsService.findOne(projectId, userId);
-        return this.scansRepository.find({
+
+        const [data, total] = await this.scansRepository.findAndCount({
             where: { projectId },
             order: { startedAt: 'DESC' },
+            skip: (page - 1) * limit,
+            take: limit,
         });
+
+        return {
+            data,
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+        };
     }
 
     async findOne(scanId: number): Promise<Scan> {

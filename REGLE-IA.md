@@ -57,6 +57,7 @@ Fichier de référence interne pour l’IA
 - [x] Auto-update des status de scan (Polling & UI).
 - [x] Vérification de la connexion Redis au démarrage.
 - [x] Implémenter l'internationalisation (i18n) FR/EN.
+- [x] Pagination des scans (Backend & Frontend).
 
 ## 4. Notes importantes
 - Ce fichier doit toujours rester court, clair et entièrement lisible par l’IA au début de chaque session.

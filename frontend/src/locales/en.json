@@ -13,13 +13,12 @@
         "actions": "Actions",
         "status": "Status",
         "created_at": "Created At",
-        "updated_at": "Updated At",
-        "search": "Search...",
-        "filter": "Filter",
-        "all": "All",
-        "none": "None",
-        "yes": "Yes",
-        "no": "No"
+        "showing": "Showing",
+        "to": "to",
+        "of": "of",
+        "results": "results",
+        "previous": "Previous",
+        "next": "Next"
     },
     "auth": {
         "login_title": "Welcome back",
