@@ -36,13 +36,20 @@ Fichier de référence interne pour l’IA
 ## 3. Backlog (Kanban)
 
 ### TODO
-- [ ] Abstraction du Provider Git (pour futur GitLab/Bitbucket).
-- [ ] Tests unitaires et E2E plus complets.
+*(Vide)*
 
 ### DOING
 *(Vide)*
 
+### ON HOLD
+- [ ] Support GitLab / Bitbucket
+- [ ] Export des rapports (PDF, CSV)
+- [ ] Webhooks (Slack/Discord/Teams)
+- [ ] Tests E2E Frontend (Cypress)
+
 ### DONE
+- [x] Abstraction du Provider Git (pour futur GitLab/Bitbucket).
+- [x] Tests unitaires et E2E plus complets.
 - [x] Initialiser le repository Git et la structure Git Flow (branches main, develop).
 - [x] Bootstrap Frontend : Vue 3, Vite, Tailwind, Pinia, Router.
 - [x] Configurer l'intégration GitHub OAuth (Backend & Frontend).

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
-import { FolderGit2, ArrowLeft, Check } from 'lucide-vue-next';
+import { FolderGit2, ArrowLeft, Check, Search, Lock, Globe, GitBranch } from 'lucide-vue-next';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
@@ -27,6 +27,41 @@ const formData = ref({
 
 const selectedRepo = ref<any>(null);
 const detectedLockfiles = ref<{ path: string; packageManager: string }[]>([]);
+
+const repoSearchQuery = ref('');
+const branchSearchQuery = ref('');
+
+const filteredRepositories = computed(() => {
+  let repos = [...projectStore.repositories]; // Create a copy to avoid mutating store state if sort does in-place
+  if (repoSearchQuery.value) {
+    const query = repoSearchQuery.value.toLowerCase();
+    repos = repos.filter(r => r.fullName.toLowerCase().includes(query));
+  }
+  return repos.sort((a, b) => a.fullName.localeCompare(b.fullName));
+});
+
+const filteredBranches = computed(() => {
+  let branches = [...projectStore.branches];
+  if (branchSearchQuery.value) {
+    const query = branchSearchQuery.value.toLowerCase();
+    branches = branches.filter(b => b.name.toLowerCase().includes(query));
+  }
+  return branches.sort((a, b) => a.name.localeCompare(b.name));
+  return branches.sort((a, b) => a.name.localeCompare(b.name));
+});
+
+import cronstrue from 'cronstrue/i18n';
+import { useI18n } from 'vue-i18n';
+
+const { locale } = useI18n();
+
+const cronDescription = computed(() => {
+  try {
+    return cronstrue.toString(formData.value.cronSchedule, { locale: locale.value });
+  } catch (e) {
+    return '';
+  }
+});
 
 onMounted(() => {
   projectStore.fetchRepositories();
@@ -58,7 +93,7 @@ const selectBranch = async (branchName: string) => {
 
 const selectLockfile = (lockfile: { path: string; packageManager: string }) => {
   formData.value.lockfilePath = lockfile.path;
-  formData.value.packageManager = lockfile.packageManager;
+  formData.value.packageManager = lockfile.packageManager || 'npm';
   step.value = 4;
 };
 
@@ -68,6 +103,12 @@ const handleSubmit = async () => {
     router.push('/projects');
   } catch (error) {
     alert('Failed to create project');
+  }
+};
+
+const goToStep = (targetStep: number) => {
+  if (targetStep < step.value) {
+    step.value = targetStep;
   }
 };
 
@@ -128,7 +169,7 @@ const goBack = () => {
         <div class="flex justify-between items-center mb-8">
           <div>
             <h2 class="text-3xl font-bold tracking-tight">{{ $t('create_project.title') }}</h2>
-            <p class="text-muted-foreground mt-1">Step {{ step }} of 3</p>
+            <p class="text-muted-foreground mt-1">Step {{ step }} of 4</p>
           </div>
           <div class="flex items-center gap-2">
             <LanguageSwitcher />
@@ -138,53 +179,79 @@ const goBack = () => {
 
         <!-- Progress -->
         <div class="flex items-center gap-4 mb-8">
-          <div class="flex items-center gap-2">
-            <div :class="step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">
+          <div class="flex items-center gap-2 cursor-pointer" @click="goToStep(1)">
+            <div :class="step >= 1 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors hover:opacity-80">
               <Check v-if="step > 1" class="w-4 h-4" />
               <span v-else>1</span>
             </div>
-            <span class="text-sm font-medium">{{ $t('projects.columns.repository') }}</span>
+            <span class="text-sm font-medium" :class="{'text-primary': step >= 1}">{{ $t('projects.columns.repository') }}</span>
           </div>
           <div class="flex-1 h-px bg-border"></div>
-          <div class="flex items-center gap-2">
-            <div :class="step >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">
+          <div class="flex items-center gap-2" :class="{'cursor-pointer': step > 2}" @click="goToStep(2)">
+            <div :class="step >= 2 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors hover:opacity-80">
               <Check v-if="step > 2" class="w-4 h-4" />
               <span v-else>2</span>
             </div>
-            <span class="text-sm font-medium">{{ $t('projects.columns.branch') }}</span>
+            <span class="text-sm font-medium" :class="{'text-primary': step >= 2}">{{ $t('projects.columns.branch') }}</span>
+          </div>
+          <div class="flex-1 h-px bg-border"></div>
+          <div class="flex items-center gap-2" :class="{'cursor-pointer': step > 3}" @click="goToStep(3)">
+            <div :class="step >= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors hover:opacity-80">
+              <Check v-if="step > 3" class="w-4 h-4" />
+              <span v-else>3</span>
+            </div>
+            <span class="text-sm font-medium" :class="{'text-primary': step >= 3}">Lockfile</span>
           </div>
           <div class="flex-1 h-px bg-border"></div>
           <div class="flex items-center gap-2">
-            <div :class="step >= 3 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">3</div>
-            <span class="text-sm font-medium">{{ $t('project_detail.configuration') }}</span>
+            <div :class="step >= 4 ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'" class="w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium">4</div>
+            <span class="text-sm font-medium" :class="{'text-primary': step >= 4}">{{ $t('project_detail.configuration') }}</span>
           </div>
         </div>
 
         <!-- Step 1: Select Repository -->
-        <Card v-if="step === 1">
+        <Card v-if="step === 1" class="h-full flex flex-col">
           <CardHeader>
             <CardTitle>{{ $t('create_project.step_1_title') }}</CardTitle>
+            <div class="mt-4 relative">
+                <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                    v-model="repoSearchQuery"
+                    type="text"
+                    :placeholder="$t('create_project.repo_search')"
+                    class="w-full pl-9 pr-4 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent class="flex-1 overflow-hidden flex flex-col">
             <div v-if="projectStore.loading" class="flex items-center justify-center py-12">
               <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
 
-            <div v-else class="space-y-2">
+            <div v-else class="flex-1 overflow-y-auto pr-2 space-y-2 max-h-[400px]">
+              <div v-if="filteredRepositories.length === 0" class="text-center py-8 text-muted-foreground">
+                {{ $t('create_project.no_repos') }}
+              </div>
               <div
-                v-for="repo in projectStore.repositories"
+                v-for="repo in filteredRepositories"
                 :key="repo.id"
                 @click="selectRepository(repo)"
-                class="p-4 border rounded-lg cursor-pointer hover:border-primary hover:bg-accent transition-colors"
+                class="group p-4 border rounded-lg cursor-pointer hover:border-primary hover:bg-accent/50 transition-all duration-200"
               >
                 <div class="flex justify-between items-center">
-                  <div>
-                    <h3 class="font-medium">{{ repo.fullName }}</h3>
-                    <p class="text-sm text-muted-foreground">{{ repo.private ? 'Private' : 'Public' }}</p>
+                  <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-md bg-secondary group-hover:bg-background transition-colors">
+                        <Lock v-if="repo.private" class="w-4 h-4 text-muted-foreground" />
+                        <Globe v-else class="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h3 class="font-medium group-hover:text-primary transition-colors">{{ repo.fullName }}</h3>
+                      <p class="text-xs text-muted-foreground">{{ repo.private ? 'Private' : 'Public' }}</p>
+                    </div>
                   </div>
-                  <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                  </svg>
+                  <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span class="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded">{{ $t('create_project.select') }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -200,31 +267,48 @@ const goBack = () => {
         </Card>
 
         <!-- Step 2: Select Branch -->
-        <Card v-if="step === 2">
+        <Card v-if="step === 2" class="h-full flex flex-col">
           <CardHeader>
             <CardTitle>{{ $t('create_project.step_2_title') }}</CardTitle>
             <p class="text-sm text-muted-foreground mt-1">{{ $t('projects.columns.repository') }}: {{ formData.repositoryName }}</p>
+            <div class="mt-4 relative">
+                <Search class="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <input
+                    v-model="branchSearchQuery"
+                    type="text"
+                    :placeholder="$t('create_project.branch_search')"
+                    class="w-full pl-9 pr-4 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+            </div>
           </CardHeader>
-          <CardContent>
+          <CardContent class="flex-1 overflow-hidden flex flex-col">
             <div v-if="projectStore.loading" class="flex items-center justify-center py-12">
               <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
             </div>
 
-            <div v-else class="space-y-2">
+            <div v-else class="flex-1 overflow-y-auto pr-2 space-y-2 max-h-[400px]">
+              <div v-if="filteredBranches.length === 0" class="text-center py-8 text-muted-foreground">
+                {{ $t('create_project.no_branches') }}
+              </div>
               <div
-                v-for="branch in projectStore.branches"
+                v-for="branch in filteredBranches"
                 :key="branch.name"
                 @click="selectBranch(branch.name)"
-                class="p-4 border rounded-lg cursor-pointer hover:border-primary hover:bg-accent transition-colors"
+                class="group p-4 border rounded-lg cursor-pointer hover:border-primary hover:bg-accent/50 transition-all duration-200"
               >
                 <div class="flex justify-between items-center">
-                  <div>
-                    <h3 class="font-medium">{{ branch.name }}</h3>
-                    <p v-if="branch.protected" class="text-sm text-yellow-600">Protected</p>
+                  <div class="flex items-center gap-3">
+                    <div class="p-2 rounded-md bg-secondary group-hover:bg-background transition-colors">
+                        <GitBranch class="w-4 h-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <h3 class="font-medium group-hover:text-primary transition-colors">{{ branch.name }}</h3>
+                      <p v-if="branch.protected" class="text-xs text-yellow-600 font-medium bg-yellow-100 px-1.5 py-0.5 rounded inline-block mt-1">Protected</p>
+                    </div>
                   </div>
-                  <svg class="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                  </svg>
+                  <div class="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span class="text-xs font-medium text-primary bg-primary/10 px-2 py-1 rounded">{{ $t('create_project.select') }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -333,7 +417,9 @@ const goBack = () => {
                   placeholder="0 0 * * *"
                   class="w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-ring"
                 />
-                <p class="text-xs text-muted-foreground">Daily at midnight: 0 0 * * *</p>
+                <p v-if="cronDescription" class="text-sm text-primary font-medium mt-1">
+                    {{ cronDescription }}
+                </p>
               </div>
 
               <div class="flex items-center gap-2">
