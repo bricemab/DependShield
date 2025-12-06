@@ -155,11 +155,29 @@ export class ScanProcessor {
 
             this.logger.log(`Running vulnerability scan for scan ${scanId}...`);
 
-            // Run audit
-            const auditResult = await this.runAudit(scanDir, scan.project.packageManager);
+            // Run full audit
+            const fullAuditResult = await this.runAudit(scanDir, scan.project.packageManager, false);
+            const fullVulnerabilities = this.parseAuditResult(fullAuditResult, scan.project.packageManager);
 
-            // Parse and store vulnerabilities
-            const vulnerabilities = this.parseAuditResult(auditResult, scan.project.packageManager);
+            // Run production-only audit
+            const prodAuditResult = await this.runAudit(scanDir, scan.project.packageManager, true);
+            const prodVulnerabilities = this.parseAuditResult(prodAuditResult, scan.project.packageManager);
+
+            // Map prod vulnerabilities for quick lookup (key = packageName + cve or just packageName for now?)
+            // A vulnerability is defined by package name + advisor ID / CVE.
+            const prodVulnSet = new Set<string>();
+            prodVulnerabilities.forEach(v => {
+                // Create a unique key. cve might be null, so use advisory ID if available, otherwise title?
+                // Simple key: packageName + version (range) + cve
+                prodVulnSet.add(`${v.packageName}:${v.version}:${v.cve || v.title}`);
+            });
+
+            const vulnerabilities: Partial<Vulnerability>[] = fullVulnerabilities.map(v => {
+                const key = `${v.packageName}:${v.version}:${v.cve || v.title}`;
+                // If it is NOT in prod vulns, it is a dev dependency
+                const isDevDependency = !prodVulnSet.has(key);
+                return { ...v, isDevDependency };
+            });
 
             // Fetch whitelist rules for this project
             const whitelistRules = await this.whitelistService.findAllByProject(scan.project.id);
@@ -261,24 +279,37 @@ export class ScanProcessor {
         }
     }
 
-    private async runAudit(dir: string, packageManager: string): Promise<string> {
+    private async runAudit(dir: string, packageManager: string, prodOnly: boolean = false): Promise<string> {
         let command: string;
+
+        // Helper to format flags
+        const prodFlag = prodOnly ? (packageManager === 'pnpm' ? '--prod' : '--only=prod') : '';
 
         switch (packageManager) {
             case 'npm':
-                command = 'npm audit --json';
+                command = `npm audit --json ${prodFlag}`;
                 break;
             case 'yarn':
+                // Yarn classic doesn't support --only=prod in audit --json easily, but try --groups dependencies 
+                // However, user prompt says "npm audit, yarn audit".
+                // If prodOnly is requested and it's yarn, we might skip or try best effort. 
+                // Yarn 1: `yarn audit --json` returns all. 
+                // Let's assume full audit for yarn if prodFlag fails, OR just don't use flag if it breaks.
+                // For MVP, if yarn, we ignore prodOnly flag to prevent errors, meaning isDevDependency will likely be false always (conservative).
                 command = 'yarn audit --json';
+                if (prodOnly) {
+                    // Yarn classic `yarn audit --production` might work? No.
+                    this.logger.warn('Yarn audit does not support production-only filtering reliably via JSON. treating all as runtime.');
+                }
                 break;
             case 'pnpm':
-                command = 'pnpm audit --json';
+                command = `pnpm audit --json ${prodFlag}`;
                 break;
             case 'bun':
-                command = 'bun audit --json';
+                command = 'bun audit --json'; // Bun audit flags are still maturing
                 break;
             default:
-                command = 'npm audit --json';
+                command = `npm audit --json ${prodFlag}`;
         }
 
         try {

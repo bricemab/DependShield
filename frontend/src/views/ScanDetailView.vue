@@ -272,7 +272,12 @@ import TableRow from '../components/ui/TableRow.vue';
                       </TableCell>
                       <TableCell>
                           <div class="flex flex-col">
-                              <span class="font-medium">{{ vuln.packageName }}</span>
+                              <span class="font-medium flex items-center gap-2">
+                                {{ vuln.packageName }}
+                                <span v-if="vuln.isDevDependency" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wide">
+                                    DEV
+                                </span>
+                              </span>
                               <span class="text-xs text-muted-foreground">{{ vuln.version }}</span>
                           </div>
                       </TableCell>

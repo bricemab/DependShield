@@ -26,6 +26,7 @@ interface Vulnerability {
     cve?: string;
     url?: string;
     whitelisted: boolean;
+    isDevDependency: boolean;
 }
 
 export const useScanStore = defineStore('scan', () => {
@@ -125,8 +126,8 @@ export const useScanStore = defineStore('scan', () => {
             }, getHeaders());
             // Update local state
             const index = vulnerabilities.value.findIndex(v => v.id === vulnerability.id);
-            if (index !== -1) {
-                vulnerabilities.value[index].whitelisted = true;
+            if (index !== -1 && vulnerabilities.value[index]) {
+                vulnerabilities.value[index]!.whitelisted = true;
             }
         } catch (error) {
             console.error('Failed to ignore vulnerability', error);
@@ -147,8 +148,8 @@ export const useScanStore = defineStore('scan', () => {
                 await axios.delete(`${API_URL}/projects/${projectId}/whitelist/${rule.id}`, getHeaders());
                 // Update local state
                 const index = vulnerabilities.value.findIndex(v => v.id === vulnerability.id);
-                if (index !== -1) {
-                    vulnerabilities.value[index].whitelisted = false;
+                if (index !== -1 && vulnerabilities.value[index]) {
+                    vulnerabilities.value[index]!.whitelisted = false;
                 }
             }
         } catch (error) {
