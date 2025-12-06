@@ -13,6 +13,8 @@ import { ScanProcessor } from './scan.processor';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { ConfigModule } from '@nestjs/config';
 import { AuditModule } from '../audit/audit.module';
+import { GithubService } from './github.service';
+import { UsersModule } from '../users/users.module';
 
 @Module({
     imports: [
@@ -24,9 +26,10 @@ import { AuditModule } from '../audit/audit.module';
         NotificationsModule,
         ConfigModule,
         AuditModule,
+        UsersModule,
     ],
     controllers: [ScansController, WhitelistController],
-    providers: [ScansService, ScanProcessor, WhitelistService],
-    exports: [ScansService, WhitelistService],
+    providers: [ScansService, ScanProcessor, WhitelistService, GithubService],
+    exports: [ScansService, WhitelistService, GithubService],
 })
 export class ScansModule { }

@@ -4,7 +4,6 @@ import { Job } from 'bull';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import * as simpleGit from 'simple-git';
 import * as fs from 'fs-extra';
 import * as path from 'path';
 import { exec } from 'child_process';
@@ -13,6 +12,8 @@ import { Scan, ScanStatus } from './scan.entity';
 import { Vulnerability, VulnerabilitySeverity } from './vulnerability.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhitelistService } from './whitelist.service';
+import { GithubService } from './github.service';
+import { UsersService } from '../users/users.service';
 
 const execAsync = promisify(exec);
 
@@ -28,6 +29,8 @@ export class ScanProcessor {
         private configService: ConfigService,
         private notificationsService: NotificationsService,
         private whitelistService: WhitelistService,
+        private githubService: GithubService,
+        private usersService: UsersService,
     ) { }
 
     @Process('scan')
@@ -56,17 +59,80 @@ export class ScanProcessor {
             // Ensure temp directory exists
             await fs.ensureDir(scanDir);
 
-            this.logger.log(`Cloning repository for scan ${scanId}...`);
+            this.logger.log(`Fetching lockfile via GitHub API for scan ${scanId}...`);
 
-            // Clone repository
-            const git = simpleGit.default();
-            await git.clone(scan.project.repositoryUrl, scanDir, ['--depth', '1', '--branch', scan.project.branch]);
+            // Get user with access token
+            const user = await this.usersService.findOne(scan.project.user.id);
+            if (!user || !user.accessToken) {
+                throw new Error('User access token not found');
+            }
+
+            // Determine lockfile path (default to package-lock.json if not specified)
+            // Note: scan.project.lockfilePath might be empty or relative
+            let lockFilename = 'package-lock.json';
+            const pm = scan.project.packageManager;
+            if (pm === 'yarn') lockFilename = 'yarn.lock';
+            if (pm === 'pnpm') lockFilename = 'pnpm-lock.yaml';
+            if (pm === 'bun') lockFilename = 'bun.lockb';
+
+            // If project has specific lockfilePath, use it. 
+            // BUT: project.lockfilePath is usually the path TO the file, e.g. "backend/package-lock.json"
+            // If it's just ".", we assume the file name based on PM.
+            let targetPath = lockFilename;
+            if (scan.project.lockfilePath && scan.project.lockfilePath !== '.') {
+                // Check if lockfilePath ends with the file extension or is a directory
+                if (scan.project.lockfilePath.endsWith('.json') || scan.project.lockfilePath.endsWith('.lock') || scan.project.lockfilePath.endsWith('.yaml') || scan.project.lockfilePath.endsWith('.lockb')) {
+                    targetPath = scan.project.lockfilePath;
+                } else {
+                    targetPath = path.join(scan.project.lockfilePath, lockFilename).replace(/\\/g, '/');
+                }
+            }
+
+            // Fetch lockfile content
+            const lockfileContent = await this.githubService.getFileContent(
+                scan.project.repositoryUrl,
+                targetPath,
+                scan.project.branch,
+                user.accessToken
+            );
+
+            // Write lockfile to temp dir
+            // We need to maintain the directory structure if it is a monorepo, OR we just put it in root of temp dir and run audit there?
+            // npm audit needs valid package-lock.json. 
+            // If we just put it in root, `npm audit` works.
+            const localLockfilePath = path.join(scanDir, 'package-lock.json'); // Always name it package-lock.json for npm audit? No, depends on PM.
+            // For yarn, it needs yarn.lock AND package.json usually? Yarn audit sends the lockfile to registry?
+            // Actually, `npm audit` works best with `package-lock.json`. 
+            // Simplification: Write it with the correct name in scanDir.
+
+            // Note: targetPath might be deeply nested "backend/package-lock.json". 
+            // We can just flatten it to "scanDir/package-lock.json" for the audit command context, 
+            // UNLESS the audit command parses relative paths in dependencies?
+            // Usually dependencies in lockfile are registry URLs, so location doesn't matter much for standard repos.
+
+            const savedLockfilename = path.basename(targetPath);
+            await fs.writeFile(path.join(scanDir, savedLockfilename), lockfileContent);
+
+            this.logger.log(`Lockfile ${savedLockfilename} fetched and saved to ${scanDir}`);
+
+            // Also fetch package.json just in case (some auditors need it for name/version)
+            try {
+                const packageJsonPath = targetPath.replace(savedLockfilename, 'package.json');
+                const packageJsonContent = await this.githubService.getFileContent(
+                    scan.project.repositoryUrl,
+                    packageJsonPath,
+                    scan.project.branch,
+                    user.accessToken
+                );
+                await fs.writeFile(path.join(scanDir, 'package.json'), packageJsonContent);
+            } catch (e) {
+                this.logger.warn(`Could not fetch package.json, continuing without it: ${e.message}`);
+            }
 
             this.logger.log(`Running vulnerability scan for scan ${scanId}...`);
 
-            // Run audit based on package manager
-            const auditDir = scan.project.lockfilePath ? path.join(scanDir, scan.project.lockfilePath) : scanDir;
-            const auditResult = await this.runAudit(auditDir, scan.project.packageManager);
+            // Run audit
+            const auditResult = await this.runAudit(scanDir, scan.project.packageManager);
 
             // Parse and store vulnerabilities
             const vulnerabilities = this.parseAuditResult(auditResult, scan.project.packageManager);
