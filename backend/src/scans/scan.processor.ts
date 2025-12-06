@@ -67,6 +67,30 @@ export class ScanProcessor {
                 throw new Error('User access token not found');
             }
 
+            // Fetch commit SHA for the branch and update status to PENDING
+            try {
+                const commitSha = await this.githubService.getCommitSha(
+                    scan.project.repositoryUrl,
+                    scan.project.branch,
+                    user.accessToken
+                );
+                scan.commitSha = commitSha;
+                await this.scansRepository.save(scan);
+
+                // Update GitHub status to PENDING
+                await this.githubService.updateCommitStatus(
+                    scan.project.repositoryUrl,
+                    commitSha,
+                    'pending',
+                    'Scan in progress...',
+                    `http://localhost:5173/scans/${scan.id}`, // TODO: Use real env config
+                    user.accessToken
+                );
+            } catch (statusError) {
+                this.logger.warn(`Failed to update GitHub status: ${statusError.message}`);
+                // Continue scanning even if status check fails
+            }
+
             // Determine lockfile path (default to package-lock.json if not specified)
             // Note: scan.project.lockfilePath might be empty or relative
             let lockFilename = 'package-lock.json';
@@ -175,6 +199,23 @@ export class ScanProcessor {
                 await this.notificationsService.sendScanResultEmail(scan.project.user.email, scan);
             }
 
+            // Update GitHub Status to SUCCESS or FAILURE
+            if (scan.commitSha) {
+                const statusState = activeVulnerabilities.length > 0 ? 'failure' : 'success';
+                const description = activeVulnerabilities.length > 0
+                    ? `Found ${activeVulnerabilities.length} vulnerabilities`
+                    : 'No vulnerabilities found';
+
+                await this.githubService.updateCommitStatus(
+                    scan.project.repositoryUrl,
+                    scan.commitSha,
+                    statusState,
+                    description,
+                    `http://localhost:5173/scans/${scan.id}`,
+                    user.accessToken
+                );
+            }
+
             this.logger.log(`Scan ${scanId} completed successfully`);
         } catch (error) {
             this.logger.error(`Scan ${scanId} failed:`, error);
@@ -182,6 +223,29 @@ export class ScanProcessor {
             scan.errorMessage = error.message;
             scan.completedAt = new Date();
             await this.scansRepository.save(scan);
+
+            // Update GitHub Status to ERROR
+            if (scan.commitSha) {
+                // We need user token, but 'user' might be undefined if we failed before fetching it.
+                // We will try to fetch it again if possible, or just skip.
+                // To be safe, we only do this if we have user accessible. 
+                // Actually, we can just wrap this.
+                try {
+                    const userForError = await this.usersService.findOne(scan.project.user.id);
+                    if (userForError && userForError.accessToken) {
+                        await this.githubService.updateCommitStatus(
+                            scan.project.repositoryUrl,
+                            scan.commitSha,
+                            'error',
+                            `Scan failed: ${error.message}`,
+                            `http://localhost:5173/scans/${scan.id}`,
+                            userForError.accessToken
+                        );
+                    }
+                } catch (e) {
+                    this.logger.warn(`Failed to update GitHub status on error: ${e.message}`);
+                }
+            }
         } finally {
             // Cleanup
             const tempDir = this.configService.get<string>('scan.tempDir');

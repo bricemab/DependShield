@@ -36,6 +36,9 @@ export class Scan {
     @Column({ type: 'text', nullable: true })
     errorMessage: string;
 
+    @Column({ nullable: true })
+    commitSha: string;
+
     @OneToMany(() => Vulnerability, (vulnerability) => vulnerability.scan, { cascade: true })
     vulnerabilities: Vulnerability[];
 
