@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, UseGuards, Request } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { UsersService } from './users.service';
 
@@ -12,6 +12,14 @@ export class UsersController {
     // req.user is populated by JwtStrategy, typically containing { userId: ... }
     // We need to fetch the full user object to get the 'plan'
     return this.usersService.findOne(req.user.userId);
+    // We need to fetch the full user object to get the 'plan'
+    return this.usersService.findOne(req.user.userId);
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch('me')
+  async updateProfile(@Request() req, @Body() body: any) {
+    return this.usersService.updateProfile(req.user.userId, body);
   }
 
   @UseGuards(AuthGuard('jwt'))

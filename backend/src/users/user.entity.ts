@@ -63,6 +63,16 @@ export class User {
   })
   plan: UserPlan;
 
+  @Column({ type: 'simple-json', nullable: true })
+  settings: {
+    theme?: 'light' | 'dark' | 'system';
+    language?: 'en' | 'fr';
+    notifications?: {
+      scanSummary?: boolean;
+      marketing?: boolean;
+    };
+  };
+
   @Column({ nullable: true, select: false }) // Encrypted access token, do not select by default
   accessToken: string;
 

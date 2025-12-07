@@ -43,9 +43,34 @@ const router = createRouter({
         },
         {
             path: '/settings',
-            name: 'settings',
-            component: () => import('../views/SettingsView.vue'),
+            component: () => import('../layouts/SettingsLayout.vue'),
             meta: { requiresAuth: true },
+            children: [
+                {
+                    path: '',
+                    redirect: '/settings/profile',
+                },
+                {
+                    path: 'profile',
+                    name: 'settings-profile',
+                    component: () => import('../views/settings/SettingsProfileView.vue'),
+                },
+                {
+                    path: 'organization',
+                    name: 'settings-organization',
+                    component: () => import('../views/settings/SettingsOrganizationView.vue'),
+                },
+                {
+                    path: 'billing',
+                    name: 'settings-billing',
+                    component: () => import('../views/settings/SettingsBillingView.vue'),
+                },
+                {
+                    path: 'notifications',
+                    name: 'settings-notifications',
+                    component: () => import('../views/settings/SettingsNotificationsView.vue'),
+                },
+            ],
         },
         {
             path: '/projects/:projectId/scans/:id',
@@ -72,11 +97,24 @@ const router = createRouter({
     ],
 });
 
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
     const authStore = useAuthStore();
+
+    // If authenticated (token exists) but user data is missing, fetch it
+    if (authStore.isAuthenticated && !authStore.user) {
+        try {
+            await authStore.fetchUser();
+        } catch (error) {
+            // Token might be invalid
+            authStore.logout();
+            next('/login');
+            return;
+        }
+    }
+
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
         next('/login');
-    } else if (to.meta.requiresAuth && authStore.isAuthenticated && !authStore.user?.isOnboarded && to.name !== 'onboarding') {
+    } else if (to.meta.requiresAuth && authStore.isAuthenticated && authStore.user && !authStore.user.isOnboarded && to.name !== 'onboarding') {
         next('/onboarding');
     } else {
         next();

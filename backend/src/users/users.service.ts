@@ -32,6 +32,7 @@ export class UsersService {
   async findOne(id: number): Promise<User | undefined> {
     return this.usersRepository
       .createQueryBuilder('user')
+      .leftJoinAndSelect('user.organizations', 'organization')
       .where('user.id = :id', { id })
       .addSelect('user.accessToken')
       .getOne();
@@ -69,5 +70,10 @@ export class UsersService {
       return orgs[0].plan; // Return effective plan from org
     }
     return PlanType.STARTER; // Fallback
+  }
+
+  async updateProfile(userId: number, updates: Partial<User>): Promise<User> {
+    await this.usersRepository.update(userId, updates);
+    return this.findOne(userId);
   }
 }
