@@ -34,7 +34,19 @@ export class ProjectsService {
   // ... existing findAll ...
 
   async findAll(userId: number): Promise<any[]> {
-    const projects = await this.projectsRepository.find({ where: { userId } });
+    // 1. Get user's organizations
+    const user = await this.usersService.findOne(userId);
+    if (!user || !user.organizations || user.organizations.length === 0) {
+      return [];
+    }
+
+    // 2. Fetch projects for these organizations
+    const organizationIds = user.organizations.map(org => org.id);
+
+    const projects = await this.projectsRepository.createQueryBuilder('project')
+      .leftJoinAndSelect('project.user', 'creator') // Keep track of who created it
+      .where('project.organizationId IN (:...organizationIds)', { organizationIds })
+      .getMany();
 
     // Enrich with last scan info
     const projectsWithScans = await Promise.all(projects.map(async (project) => {
@@ -98,20 +110,29 @@ export class ProjectsService {
       throw new NotFoundException('User not found');
     }
 
-    // 1. Quota Check
+    // Default to first organization for now
+    const organizationId = user.organizations?.[0]?.id;
+    if (!organizationId) {
+      throw new BadRequestException('User must belong to an organization to create a Project.');
+    }
+
+    // 1. Quota Check (Scoped to Organization?) 
+    // Ideally quota should be per Org, but keeping logic SIMPLE for now (user's plan limit on org projects)
     const projectCount = await this.projectsRepository.count({
-      where: { userId },
+      where: { organizationId },
     });
+
     let maxProjects = 3; // Starter
     if (plan === PlanType.PRO) maxProjects = 20;
     if (plan === PlanType.ENTERPRISE) maxProjects = 9999;
 
     if (projectCount >= maxProjects) {
       throw new BadRequestException(
-        `Plan limit reached. Your plan (${plan}) allows a maximum of ${maxProjects} projects.`,
+        `Organization plan limit reached. Your plan (${plan}) allows a maximum of ${maxProjects} projects.`,
       );
     }
 
+    // ... (Existing Private/Monorepo checks remain same) ...
     // 2. Private Repo Check
     // Verify visibility with Git Provider to prevent bypass
     if (
@@ -138,10 +159,6 @@ export class ProjectsService {
           createProjectDto.isPrivate = true;
         }
       } catch (error) {
-        // If we can't fetch metadata, we might fail safe or warn.
-        // For now, if we can't verify, we fall back to DTO but log it?
-        // Or better, fail if we suspect foul play.
-        // Let's rely on DTO if fetch fails (e.g. network) BUT if it succeeds we enforce.
         console.warn(
           `Could not verify repo metadata for ${createProjectDto.repositoryName}:`,
           error,
@@ -182,6 +199,7 @@ export class ProjectsService {
     const project = this.projectsRepository.create({
       ...createProjectDto,
       userId,
+      organizationId
     });
     return this.projectsRepository.save(project);
   }

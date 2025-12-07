@@ -8,6 +8,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { User } from '../users/user.entity';
+import { Organization } from '../organizations/organization.entity';
 import { Webhook } from '../webhooks/webhook.entity';
 
 export enum PackageManager {
@@ -67,6 +68,12 @@ export class Project {
 
   @Column()
   userId: number;
+
+  @ManyToOne(() => Organization, { onDelete: 'CASCADE', nullable: true })
+  organization: Organization;
+
+  @Column({ nullable: true })
+  organizationId: number;
 
   @CreateDateColumn()
   createdAt: Date;

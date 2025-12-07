@@ -19,6 +19,10 @@ export class UsersService {
     return this.usersRepository.findOne({ where: { githubId } });
   }
 
+  async findByUsername(username: string): Promise<User | undefined> {
+    return this.usersRepository.findOne({ where: { username } });
+  }
+
   async createOrUpdate(userData: Partial<User>): Promise<User> {
     let user = await this.findByGithubId(userData.githubId);
     if (!user) {

@@ -39,4 +39,27 @@ export class OrganizationsService {
         await this.organizationsRepository.update(id, updateData);
         return this.organizationsRepository.findOne({ where: { id } });
     }
+
+    async addMember(orgId: number, user: User): Promise<Organization> {
+        const org = await this.findOne(orgId);
+        if (!org) {
+            throw new Error('Organization not found');
+        }
+        // Check if user is already member
+        const isMember = org.users.some(u => u.id === user.id);
+        if (!isMember) {
+            org.users.push(user);
+            return this.organizationsRepository.save(org);
+        }
+        return org;
+    }
+
+    async removeMember(orgId: number, userIdToRemove: number): Promise<Organization> {
+        const org = await this.findOne(orgId);
+        if (!org) {
+            throw new Error('Organization not found');
+        }
+        org.users = org.users.filter(u => u.id !== userIdToRemove);
+        return this.organizationsRepository.save(org);
+    }
 }
