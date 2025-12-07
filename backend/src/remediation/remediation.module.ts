@@ -9,13 +9,13 @@ import { ScansModule } from '../scans/scans.module';
 import { ConfigModule } from '@nestjs/config';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([Vulnerability, Project]),
-        UsersModule,
-        ScansModule,
-        ConfigModule,
-    ],
-    controllers: [RemediationController],
-    providers: [RemediationService],
+  imports: [
+    TypeOrmModule.forFeature([Vulnerability, Project]),
+    UsersModule,
+    ScansModule,
+    ConfigModule,
+  ],
+  controllers: [RemediationController],
+  providers: [RemediationService],
 })
-export class RemediationModule { }
+export class RemediationModule {}

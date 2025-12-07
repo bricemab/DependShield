@@ -4,11 +4,8 @@ import { ProjectsModule } from '../projects/projects.module';
 import { ScansModule } from '../scans/scans.module';
 
 @Module({
-    imports: [
-        forwardRef(() => ProjectsModule),
-        ScansModule,
-    ],
-    providers: [SchedulerService],
-    exports: [SchedulerService],
+  imports: [forwardRef(() => ProjectsModule), ScansModule],
+  providers: [SchedulerService],
+  exports: [SchedulerService],
 })
-export class SchedulerModule { }
+export class SchedulerModule {}

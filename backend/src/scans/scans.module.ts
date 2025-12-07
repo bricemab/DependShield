@@ -18,24 +18,40 @@ import { UsersModule } from '../users/users.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { EpssModule } from '../epss/epss.module';
 import { LicenseService } from './license.service';
+import { SupplyChainService } from './supply-chain.service';
 import { SbomService } from './sbom.service';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([Scan, Vulnerability, WhitelistRule]),
-        BullModule.registerQueue({
-            name: 'scans',
-        }),
-        forwardRef(() => ProjectsModule),
-        NotificationsModule,
-        ConfigModule,
-        AuditModule,
-        UsersModule,
-        forwardRef(() => WebhooksModule),
-        EpssModule,
-    ],
-    controllers: [ScansController, WhitelistController],
-    providers: [ScansService, ScanProcessor, WhitelistService, GithubService, LicenseService, SbomService],
-    exports: [ScansService, WhitelistService, GithubService, LicenseService, SbomService],
+  imports: [
+    TypeOrmModule.forFeature([Scan, Vulnerability, WhitelistRule]),
+    BullModule.registerQueue({
+      name: 'scans',
+    }),
+    forwardRef(() => ProjectsModule),
+    NotificationsModule,
+    ConfigModule,
+    AuditModule,
+    UsersModule,
+    forwardRef(() => WebhooksModule),
+    EpssModule,
+  ],
+  controllers: [ScansController, WhitelistController],
+  providers: [
+    ScansService,
+    ScanProcessor,
+    WhitelistService,
+    GithubService,
+    LicenseService,
+    SbomService,
+    SupplyChainService,
+  ],
+  exports: [
+    ScansService,
+    WhitelistService,
+    GithubService,
+    LicenseService,
+    SbomService,
+    SupplyChainService,
+  ],
 })
-export class ScansModule { }
+export class ScansModule {}

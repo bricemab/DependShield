@@ -6,7 +6,7 @@ import { Scan } from '../scans/scan.entity';
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
-  constructor(private readonly mailerService: MailerService) { }
+  constructor(private readonly mailerService: MailerService) {}
 
   async sendScanResultEmail(to: string, scan: Scan) {
     try {
@@ -98,10 +98,14 @@ export class NotificationsService {
 
   private getHexColor(name: string): string {
     switch (name) {
-      case 'green': return '#10b981';
-      case 'orange': return '#f59e0b';
-      case 'red': return '#ef4444';
-      default: return '#3b82f6';
+      case 'green':
+        return '#10b981';
+      case 'orange':
+        return '#f59e0b';
+      case 'red':
+        return '#ef4444';
+      default:
+        return '#3b82f6';
     }
   }
   async sendWelcomeEmail(to: string, username: string) {

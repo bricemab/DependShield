@@ -19,7 +19,9 @@ async function bootstrap() {
     await queue.client.ping();
     logger.log('✅ Redis connection successful');
   } catch (error) {
-    logger.error('❌ Failed to connect to Redis. Please ensure Redis is running.');
+    logger.error(
+      '❌ Failed to connect to Redis. Please ensure Redis is running.',
+    );
     logger.error(error);
     process.exit(1);
   }

@@ -5,30 +5,30 @@ import { User } from './user.entity';
 
 @Injectable()
 export class UsersService {
-    constructor(
-        @InjectRepository(User)
-        private usersRepository: Repository<User>,
-    ) { }
+  constructor(
+    @InjectRepository(User)
+    private usersRepository: Repository<User>,
+  ) {}
 
-    async findByGithubId(githubId: string): Promise<User | undefined> {
-        return this.usersRepository.findOne({ where: { githubId } });
-    }
+  async findByGithubId(githubId: string): Promise<User | undefined> {
+    return this.usersRepository.findOne({ where: { githubId } });
+  }
 
-    async createOrUpdate(userData: Partial<User>): Promise<User> {
-        let user = await this.findByGithubId(userData.githubId);
-        if (!user) {
-            user = this.usersRepository.create(userData);
-        } else {
-            this.usersRepository.merge(user, userData);
-        }
-        return this.usersRepository.save(user);
+  async createOrUpdate(userData: Partial<User>): Promise<User> {
+    let user = await this.findByGithubId(userData.githubId);
+    if (!user) {
+      user = this.usersRepository.create(userData);
+    } else {
+      this.usersRepository.merge(user, userData);
     }
+    return this.usersRepository.save(user);
+  }
 
-    async findOne(id: number): Promise<User | undefined> {
-        return this.usersRepository
-            .createQueryBuilder('user')
-            .where('user.id = :id', { id })
-            .addSelect('user.accessToken')
-            .getOne();
-    }
+  async findOne(id: number): Promise<User | undefined> {
+    return this.usersRepository
+      .createQueryBuilder('user')
+      .where('user.id = :id', { id })
+      .addSelect('user.accessToken')
+      .getOne();
+  }
 }

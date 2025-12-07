@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { useScanStore } from '../stores/scan';
 import { useAuthStore } from '../stores/auth';
-import { Eye, EyeOff, Crown, Download, ArrowUp, ArrowDown, ArrowUpDown, Lock, Box, Wand2, ChevronRight, LayoutDashboard, FolderOpen, Activity, Scale, Code2 } from 'lucide-vue-next';
+import { Eye, EyeOff, Crown, Download, ArrowUp, ArrowDown, ArrowUpDown, Lock, Box, Wand2, ChevronRight, LayoutDashboard, FolderOpen, Activity, Scale, Code2, Skull } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
 import CardContent from '../components/ui/CardContent.vue';
@@ -421,6 +421,7 @@ import TableRow from '../components/ui/TableRow.vue';
                               <span class="font-medium flex items-center gap-2">
                                 <Lock v-if="vuln.type === 'secret' || vuln.packageName === 'Secret Leak'" class="w-4 h-4 text-orange-500" />
                                 <Scale v-else-if="vuln.type === 'license'" class="w-4 h-4 text-purple-500" />
+                                <Skull v-else-if="vuln.type === 'supply-chain'" class="w-4 h-4 text-red-600" />
                                 <Box v-else class="w-4 h-4 text-muted-foreground" />
                                 {{ vuln.packageName }}
                                 <span v-if="vuln.isDevDependency" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wide">

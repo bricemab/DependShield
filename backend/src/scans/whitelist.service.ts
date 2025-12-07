@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, Inject, forwardRef, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  Inject,
+  forwardRef,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WhitelistRule } from './whitelist-rule.entity';
@@ -7,59 +13,73 @@ import { UserPlan } from '../users/user.entity';
 
 @Injectable()
 export class WhitelistService {
-    constructor(
-        @InjectRepository(WhitelistRule)
-        private whitelistRepository: Repository<WhitelistRule>,
-        @Inject(forwardRef(() => ProjectsService))
-        private projectsService: ProjectsService,
-    ) { }
+  constructor(
+    @InjectRepository(WhitelistRule)
+    private whitelistRepository: Repository<WhitelistRule>,
+    @Inject(forwardRef(() => ProjectsService))
+    private projectsService: ProjectsService,
+  ) {}
 
-    async findAllByProject(projectId: number): Promise<WhitelistRule[]> {
-        return this.whitelistRepository.find({ where: { projectId } });
+  async findAllByProject(projectId: number): Promise<WhitelistRule[]> {
+    return this.whitelistRepository.find({ where: { projectId } });
+  }
+
+  async create(
+    projectId: number,
+    data: Partial<WhitelistRule>,
+  ): Promise<WhitelistRule> {
+    // SaaS Check
+    const project = await this.projectsService.findOneById(projectId);
+    const userPlan = project.user?.plan || UserPlan.STARTER;
+
+    if (userPlan === UserPlan.STARTER) {
+      throw new BadRequestException(
+        'Whitelist management is only available on PRO and ENTERPRISE plans.',
+      );
     }
 
-    async create(projectId: number, data: Partial<WhitelistRule>): Promise<WhitelistRule> {
-        // SaaS Check
-        const project = await this.projectsService.findOneById(projectId);
-        const userPlan = project.user?.plan || UserPlan.STARTER;
+    const rule = this.whitelistRepository.create({
+      ...data,
+      projectId,
+    });
+    return this.whitelistRepository.save(rule);
+  }
 
-        if (userPlan === UserPlan.STARTER) {
-            throw new BadRequestException('Whitelist management is only available on PRO and ENTERPRISE plans.');
-        }
+  async remove(id: number, projectId: number): Promise<void> {
+    // SaaS Check
+    const project = await this.projectsService.findOneById(projectId);
+    const userPlan = project.user?.plan || UserPlan.STARTER;
 
-        const rule = this.whitelistRepository.create({
-            ...data,
-            projectId,
-        });
-        return this.whitelistRepository.save(rule);
+    if (userPlan === UserPlan.STARTER) {
+      throw new BadRequestException(
+        'Whitelist management is only available on PRO and ENTERPRISE plans.',
+      );
     }
 
-    async remove(id: number, projectId: number): Promise<void> {
-        // SaaS Check
-        const project = await this.projectsService.findOneById(projectId);
-        const userPlan = project.user?.plan || UserPlan.STARTER;
+    const rule = await this.whitelistRepository.findOne({
+      where: { id, projectId },
+    });
+    if (!rule) {
+      throw new NotFoundException(`Whitelist rule ${id} not found`);
+    }
+    await this.whitelistRepository.remove(rule);
+  }
 
-        if (userPlan === UserPlan.STARTER) {
-            throw new BadRequestException('Whitelist management is only available on PRO and ENTERPRISE plans.');
-        }
+  async isWhitelisted(
+    projectId: number,
+    packageName: string,
+    cve?: string,
+  ): Promise<boolean> {
+    const query = this.whitelistRepository
+      .createQueryBuilder('rule')
+      .where('rule.projectId = :projectId', { projectId })
+      .andWhere('rule.packageName = :packageName', { packageName });
 
-        const rule = await this.whitelistRepository.findOne({ where: { id, projectId } });
-        if (!rule) {
-            throw new NotFoundException(`Whitelist rule ${id} not found`);
-        }
-        await this.whitelistRepository.remove(rule);
+    if (cve) {
+      query.andWhere('(rule.cve = :cve OR rule.cve IS NULL)', { cve });
     }
 
-    async isWhitelisted(projectId: number, packageName: string, cve?: string): Promise<boolean> {
-        const query = this.whitelistRepository.createQueryBuilder('rule')
-            .where('rule.projectId = :projectId', { projectId })
-            .andWhere('rule.packageName = :packageName', { packageName });
-
-        if (cve) {
-            query.andWhere('(rule.cve = :cve OR rule.cve IS NULL)', { cve });
-        }
-
-        const count = await query.getCount();
-        return count > 0;
-    }
+    const count = await query.getCount();
+    return count > 0;
+  }
 }

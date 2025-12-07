@@ -1,39 +1,45 @@
-import { IsString, IsEnum, IsBoolean, IsOptional, IsNotEmpty } from 'class-validator';
+import {
+  IsString,
+  IsEnum,
+  IsBoolean,
+  IsOptional,
+  IsNotEmpty,
+} from 'class-validator';
 import { PackageManager } from '../project.entity';
 
 export class CreateProjectDto {
-    @IsString()
-    @IsNotEmpty()
-    name: string;
+  @IsString()
+  @IsNotEmpty()
+  name: string;
 
-    @IsString()
-    @IsNotEmpty()
-    repositoryUrl: string;
+  @IsString()
+  @IsNotEmpty()
+  repositoryUrl: string;
 
-    @IsString()
-    @IsNotEmpty()
-    repositoryName: string;
+  @IsString()
+  @IsNotEmpty()
+  repositoryName: string;
 
-    @IsString()
-    @IsNotEmpty()
-    branch: string;
+  @IsString()
+  @IsNotEmpty()
+  branch: string;
 
-    @IsBoolean()
-    @IsOptional()
-    isPrivate?: boolean;
+  @IsBoolean()
+  @IsOptional()
+  isPrivate?: boolean;
 
-    @IsEnum(PackageManager)
-    packageManager: PackageManager;
+  @IsEnum(PackageManager)
+  packageManager: PackageManager;
 
-    @IsString()
-    @IsOptional()
-    lockfilePath?: string;
+  @IsString()
+  @IsOptional()
+  lockfilePath?: string;
 
-    @IsString()
-    @IsOptional()
-    cronSchedule?: string;
+  @IsString()
+  @IsOptional()
+  cronSchedule?: string;
 
-    @IsBoolean()
-    @IsOptional()
-    emailEnabled?: boolean;
+  @IsBoolean()
+  @IsOptional()
+  emailEnabled?: boolean;
 }

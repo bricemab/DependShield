@@ -10,21 +10,21 @@ import { AuthController } from './auth.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-    imports: [
-        UsersModule,
-        PassportModule,
-        NotificationsModule,
-        JwtModule.registerAsync({
-            imports: [ConfigModule],
-            inject: [ConfigService],
-            useFactory: async (configService: ConfigService) => ({
-                secret: configService.get<string>('jwt.secret'),
-                signOptions: { expiresIn: '1d' },
-            }),
-        }),
-    ],
-    providers: [AuthService, GithubStrategy, JwtStrategy],
-    controllers: [AuthController],
-    exports: [AuthService],
+  imports: [
+    UsersModule,
+    PassportModule,
+    NotificationsModule,
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('jwt.secret'),
+        signOptions: { expiresIn: '1d' },
+      }),
+    }),
+  ],
+  providers: [AuthService, GithubStrategy, JwtStrategy],
+  controllers: [AuthController],
+  exports: [AuthService],
 })
-export class AuthModule { }
+export class AuthModule {}

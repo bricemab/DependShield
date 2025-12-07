@@ -6,10 +6,8 @@ import { Project } from '../projects/project.entity';
 import { Scan } from '../scans/scan.entity';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([Project, Scan]),
-    ],
-    controllers: [DashboardController],
-    providers: [DashboardService],
+  imports: [TypeOrmModule.forFeature([Project, Scan])],
+  controllers: [DashboardController],
+  providers: [DashboardService],
 })
-export class DashboardModule { }
+export class DashboardModule {}

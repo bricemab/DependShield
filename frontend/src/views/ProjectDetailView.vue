@@ -12,7 +12,6 @@ import CardContent from '../components/ui/CardContent.vue';
 import DashboardLayout from '../layouts/DashboardLayout.vue';
 
 import { useAuthStore } from '../stores/auth';
-import ProjectWebhooks from './ProjectWebhooks.vue';
 import ProjectIntegrations from './ProjectIntegrations.vue';
 
 const route = useRoute();

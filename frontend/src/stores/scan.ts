@@ -33,7 +33,7 @@ interface Vulnerability {
     isDevDependency: boolean;
     epssScore?: number | null;
     epssPercentile?: number | null;
-    type?: 'dependency' | 'code' | 'secret' | 'infrastructure' | 'docker' | 'license';
+    type?: 'dependency' | 'code' | 'secret' | 'infrastructure' | 'docker' | 'license' | 'supply-chain';
 }
 
 export const useScanStore = defineStore('scan', () => {

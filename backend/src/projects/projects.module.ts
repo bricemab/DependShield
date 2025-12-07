@@ -9,15 +9,15 @@ import { SchedulerModule } from '../scheduler/scheduler.module';
 import { AuditModule } from '../audit/audit.module';
 
 @Module({
-    imports: [
-        TypeOrmModule.forFeature([Project]),
-        UsersModule,
-        ProvidersModule,
-        forwardRef(() => SchedulerModule),
-        AuditModule,
-    ],
-    controllers: [ProjectsController],
-    providers: [ProjectsService],
-    exports: [ProjectsService],
+  imports: [
+    TypeOrmModule.forFeature([Project]),
+    UsersModule,
+    ProvidersModule,
+    forwardRef(() => SchedulerModule),
+    AuditModule,
+  ],
+  controllers: [ProjectsController],
+  providers: [ProjectsService],
+  exports: [ProjectsService],
 })
-export class ProjectsModule { }
+export class ProjectsModule {}
