@@ -94,6 +94,11 @@ const router = createRouter({
             component: OnboardingView,
             meta: { requiresAuth: true },
         },
+        {
+            path: '/invite/:token',
+            name: 'invite-landing',
+            component: () => import('../views/InviteLandingView.vue'),
+        },
     ],
 });
 

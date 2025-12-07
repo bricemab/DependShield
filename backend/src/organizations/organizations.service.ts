@@ -20,6 +20,11 @@ export class OrganizationsService {
         return this.organizationsRepository.save(org);
     }
 
+    async create(data: Partial<Organization>): Promise<Organization> {
+        const org = this.organizationsRepository.create(data);
+        return this.organizationsRepository.save(org);
+    }
+
     async findOne(id: number): Promise<Organization | null> {
         return this.organizationsRepository.findOne({
             where: { id },

@@ -59,9 +59,20 @@ export class UsersService {
     // Update Organization Name if provided
     if (data.organizationName) {
       const orgs = await this.organizationsService.findByUser(userId);
-      // Logic: Update the first organization found (Assuming it's the personal/default one for now)
+
       if (orgs && orgs.length > 0) {
-        await this.organizationsService.update(orgs[0].id, { name: data.organizationName });
+        const firstOrg = orgs[0];
+        // SAFETY CHECK: Only rename if this user is the ONLY member (implies personal org)
+        if (firstOrg.users && firstOrg.users.length === 1) {
+          await this.organizationsService.update(firstOrg.id, { name: data.organizationName });
+        } else {
+          // If user joined a shared org (via invite), DO NOT rename it.
+          // Instead, create a new personal organization for them.
+          await this.organizationsService.create({ name: data.organizationName, users: [user] });
+        }
+      } else {
+        // Should not happen if createDefault is called, but safety:
+        await this.organizationsService.create({ name: data.organizationName, users: [user] });
       }
     }
 

@@ -7,12 +7,20 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 
-onMounted(() => {
+onMounted(async () => {
   const token = route.query.token as string;
   if (token) {
     authStore.setToken(token);
-    authStore.fetchUser(); // Fetch user details after setting token
-    router.push('/');
+    await authStore.fetchUser(); // Wait for user fetch to ensure auth state is ready
+    
+    // Check for pending invitation
+    const pendingInvite = localStorage.getItem('pending_invite');
+    if (pendingInvite) {
+        localStorage.removeItem('pending_invite');
+        router.push(`/invite/${pendingInvite}`);
+    } else {
+        router.push('/');
+    }
   } else {
     router.push('/login');
   }

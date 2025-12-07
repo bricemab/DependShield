@@ -2,8 +2,9 @@
 import { FolderGit2, LayoutDashboard, ShieldAlert, Settings, BookOpen, ChevronDown, Building } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import { onClickOutside } from '@vueuse/core';
+import { Badge } from '@/components/ui/badge';
 
 const route = useRoute();
 const router = useRouter();
@@ -32,6 +33,14 @@ const handleLogout = () => {
   authStore.logout();
   router.push('/login');
 };
+
+const getPlanColor = (plan: string) => {
+    switch (plan?.toUpperCase()) {
+        case 'ENTERPRISE': return 'bg-amber-500/10 text-amber-500 border-amber-500/20'; // Gold-ish
+        case 'PRO': return 'bg-blue-500/10 text-blue-500 border-blue-500/20';
+        default: return 'bg-muted text-muted-foreground border-border'; // Starter/Free
+    }
+};
 </script>
 
 <template>
@@ -47,7 +56,6 @@ const handleLogout = () => {
     <!-- Navigation -->
     <nav class="flex-1 p-4">
       <div class="space-y-1">
-        <!-- Organization Label -->
         <!-- Organization Switcher -->
         <div v-if="authStore.user?.organizations && authStore.user.organizations.length > 0" class="mb-4 relative" ref="orgMenuRef">
              <button 
@@ -73,12 +81,15 @@ const handleLogout = () => {
                     v-for="org in authStore.user.organizations" 
                     :key="org.id"
                     @click="switchOrganization(org.id)"
-                    class="w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-sm transition-colors hover:bg-accent hover:text-accent-foreground"
+                    class="w-full flex items-center justify-between px-2 py-1.5 rounded-sm text-sm transition-colors hover:bg-accent hover:text-accent-foreground group"
                     :class="{ 'bg-accent/50': org.id == authStore.activeOrganizationId }"
                  >
-                    <Building class="h-3.5 w-3.5 opacity-70" />
-                    <span class="truncate">{{ org.name }}</span>
-                    <span v-if="org.id == authStore.activeOrganizationId" class="ml-auto text-xs text-primary font-medium">Active</span>
+                    <div class="flex items-center gap-2 overflow-hidden">
+                        <Building class="h-3.5 w-3.5 opacity-70" />
+                        <span class="truncate">{{ org.name }}</span>
+                    </div>
+                    
+                    <Badge v-if="org.plan" :class="['text-[10px] h-5 px-1.5 pointer-events-none', getPlanColor(org.plan)]" variant="outline">{{ org.plan }}</Badge>
                  </button>
                  <div class="h-px bg-border my-1"></div>
                  <router-link to="/settings/organization" class="w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground">
@@ -171,7 +182,8 @@ const handleLogout = () => {
           <BookOpen class="w-4 h-4" />
           Documentation
         </a>
-      </div>    </nav>
+      </div>    
+    </nav>
 
     <!-- App Controls -->
     <!-- Controls moved to Settings -->

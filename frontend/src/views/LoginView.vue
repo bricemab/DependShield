@@ -3,7 +3,8 @@ import { Github } from 'lucide-vue-next';
 import LanguageSwitcher from '../components/LanguageSwitcher.vue';
 
 const handleLogin = () => {
-  window.location.href = 'http://localhost:3000/auth/github';
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+  window.location.href = `${apiUrl}/auth/github`;
 };
 </script>
 

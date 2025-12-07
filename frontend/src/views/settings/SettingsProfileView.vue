@@ -98,7 +98,6 @@ watch(language, updateSettings);
           <p class="text-sm text-muted-foreground">{{ user?.email }}</p>
           <div class="flex gap-2 mt-2">
              <Badge variant="outline" class="uppercase text-xs" v-if="user?.role">{{ user.role }}</Badge>
-             <Badge variant="secondary" class="uppercase text-xs" v-if="user?.plan">{{ user.plan }}</Badge>
           </div>
         </div>
       </CardContent>

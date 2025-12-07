@@ -6,7 +6,7 @@ import { Scan } from '../scans/scan.entity';
 export class NotificationsService {
   private readonly logger = new Logger(NotificationsService.name);
 
-  constructor(private readonly mailerService: MailerService) {}
+  constructor(private readonly mailerService: MailerService) { }
 
   async sendScanResultEmail(to: string, scan: Scan) {
     try {
@@ -175,6 +175,68 @@ export class NotificationsService {
     } catch (error) {
       this.logger.error(`Failed to send welcome email to ${to}`, error);
       // Don't throw, just log. Welcome email failure shouldn't block login.
+    }
+  }
+  async sendInvitationEmail(to: string, inviterName: string, orgName: string, token: string) {
+    try {
+      const subject = `Invitation to join ${orgName} on DependShield`;
+      const inviteLink = `${process.env.FRONTEND_URL}/invite/${token}`;
+
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+              body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f7; color: #333; margin: 0; padding: 0; }
+              .container { max-width: 600px; margin: 40px auto; background: #ffffff; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); overflow: hidden; }
+              .header { background: #0f172a; padding: 30px; text-align: center; }
+              .header h1 { color: #fff; margin: 0; font-size: 24px; font-weight: 600; letter-spacing: 1px; }
+              .content { padding: 40px 30px; }
+              .btn { display: block; width: 100%; max-width: 250px; margin: 0 auto; padding: 14px 25px; background-color: #0f172a; color: #ffffff !important; text-decoration: none; border-radius: 6px; font-weight: 600; text-align: center; transition: background 0.3s; }
+              .btn:hover { background-color: #334155; }
+              .footer { background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; border-top: 1px solid #e2e8f0; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <img src="${process.env.FRONTEND_URL}/logo.png" alt="DependShield Logo" style="height: 40px; margin-bottom: 10px;">
+              <h1>DependShield</h1>
+              <p>Invitation to Collaborate</p>
+            </div>
+            
+            <div class="content">
+              <p style="font-size: 16px; margin-bottom: 20px;">
+                Hi there,
+              </p>
+              <p style="color: #64748b; line-height: 1.6; margin-bottom: 30px;">
+                <strong>${inviterName}</strong> has invited you to join the organization <strong>${orgName}</strong> on DependShield.
+              </p>
+
+              <a href="${inviteLink}" class="btn">Accept Invitation</a>
+
+              <p style="text-align: center; margin-top: 30px; font-size: 12px; color: #94a3b8;">
+                This link will expire in 48 hours.
+              </p>
+            </div>
+
+            <div class="footer">
+              &copy; ${new Date().getFullYear()} DependShield. All rights reserved.
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+
+      await this.mailerService.sendMail({
+        to,
+        subject,
+        html,
+      });
+      this.logger.log(`Invitation email sent to ${to}`);
+    } catch (error) {
+      this.logger.error(`Failed to send invitation email to ${to}`, error);
+      throw error;
     }
   }
 }

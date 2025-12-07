@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Post, Delete, Body, UseGuards, Request, NotFoundException } from '@nestjs/common';
+import { Controller, Get, Patch, Param, Post, Delete, Body, UseGuards, Request, NotFoundException } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { UsersService } from '../users/users.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
@@ -14,6 +14,23 @@ export class OrganizationsController {
     @Get()
     async findAll(@Request() req) {
         return this.organizationsService.findByUser(req.user.userId);
+    }
+
+    @Get(':id')
+    async findOne(@Request() req, @Param('id') id: string) {
+        // Ensure user belongs to this org before returning it
+        const userOrgs = await this.organizationsService.findByUser(req.user.userId);
+        const hasAccess = userOrgs.some(org => org.id === +id);
+
+        if (!hasAccess) {
+            // throw new ForbiddenException('Access denied to this organization');
+            // Or just return 404 to hide existence? Forbidden is better for authz.
+            // But existing patterns use NotFound for projects. Let's use Forbidden from nestjs/common if available, or just throw error.
+            const { ForbiddenException } = await import('@nestjs/common');
+            throw new ForbiddenException('Access denied');
+        }
+
+        return this.organizationsService.findOne(+id);
     }
 
     @Patch(':id')
@@ -38,5 +55,10 @@ export class OrganizationsController {
     async removeMember(@Request() req) {
         // TODO: Verify req.user has permission
         return this.organizationsService.removeMember(parseInt(req.params.id), parseInt(req.params.userId));
+    }
+
+    @Delete(':id/leave')
+    async leave(@Request() req, @Param('id') id: string) {
+        return this.organizationsService.removeMember(+id, req.user.userId);
     }
 }

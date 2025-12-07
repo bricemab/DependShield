@@ -22,6 +22,7 @@ import { RedisModule } from './redis/redis.module';
 import { EpssModule } from './epss/epss.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { RemediationModule } from './remediation/remediation.module';
+import { InvitationsModule } from './invitations/invitations.module';
 
 @Module({
   imports: [
@@ -55,7 +56,10 @@ import { RemediationModule } from './remediation/remediation.module';
     DashboardModule,
     WebhooksModule,
     RemediationModule,
+    WebhooksModule,
+    RemediationModule,
     OrganizationsModule,
+    InvitationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
