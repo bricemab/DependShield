@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useScanStore } from '../stores/scan';
 import { useAuthStore } from '../stores/auth';
-import { ArrowLeft, Eye, EyeOff, Crown, Download } from 'lucide-vue-next';
+import { ArrowLeft, Eye, EyeOff, Crown, Download, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
 import CardContent from '../components/ui/CardContent.vue';
@@ -24,6 +24,17 @@ const scanId = computed(() => parseInt(route.params.id as string));
 const selectedSeverity = ref<string>('all');
 const showIgnored = ref(false);
 const searchQuery = ref('');
+const sortBy = ref<'severity' | 'epss'>('severity');
+const sortOrder = ref<'asc' | 'desc'>('desc');
+
+const toggleSort = (column: 'severity' | 'epss') => {
+  if (sortBy.value === column) {
+    sortOrder.value = sortOrder.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortBy.value = column;
+    sortOrder.value = 'desc';
+  }
+};
 
 const lastUpdated = ref(new Date());
 let pollInterval: any = null;
@@ -63,7 +74,7 @@ onUnmounted(() => {
 });
 
 const filteredVulnerabilities = computed(() => {
-  let vulns = scanStore.vulnerabilities;
+  let vulns = [...scanStore.vulnerabilities];
   
   if (!showIgnored.value) {
     vulns = vulns.filter(v => !v.whitelisted);
@@ -74,20 +85,25 @@ const filteredVulnerabilities = computed(() => {
     vulns = vulns.filter(v => v.packageName.toLowerCase().includes(query));
   }
 
-  if (selectedSeverity.value === 'all') {
-    return vulns.sort((a, b) => {
-        const severityOrder: Record<string, number> = { 'critical': 4, 'high': 3, 'moderate': 2, 'low': 1 };
-        const orderA = severityOrder[a.severity?.toLowerCase()] || 0;
-        const orderB = severityOrder[b.severity?.toLowerCase()] || 0;
-        return orderB - orderA;
-    });
+  if (selectedSeverity.value !== 'all') {
+    vulns = vulns.filter(v => v.severity === selectedSeverity.value);
   }
-  return vulns.filter(v => v.severity === selectedSeverity.value).sort((a, b) => {
-      // Even when filtered, sorting by severity makes sense if we have sub-severities or just for consistency
+
+  return vulns.sort((a, b) => {
+    let comparison = 0;
+    
+    if (sortBy.value === 'severity') {
         const severityOrder: Record<string, number> = { 'critical': 4, 'high': 3, 'moderate': 2, 'low': 1 };
         const orderA = severityOrder[a.severity?.toLowerCase()] || 0;
         const orderB = severityOrder[b.severity?.toLowerCase()] || 0;
-        return orderB - orderA;
+        comparison = orderA - orderB;
+    } else if (sortBy.value === 'epss') {
+        const scoreA = a.epssScore ?? -1;
+        const scoreB = b.epssScore ?? -1;
+        comparison = scoreA - scoreB;
+    }
+    
+    return sortOrder.value === 'asc' ? comparison : -comparison;
   });
 });
 
@@ -268,8 +284,22 @@ import TableRow from '../components/ui/TableRow.vue';
           <Table>
               <TableHeader>
                   <TableRow>
-                      <TableHead class="w-[100px]">Severity</TableHead>
-                      <TableHead class="w-[120px]">{{ $t('scan_detail.epss_risk') }}</TableHead>
+                      <TableHead class="w-[100px] cursor-pointer hover:bg-muted/50 transition-colors" @click="toggleSort('severity')">
+                        <div class="flex items-center gap-1">
+                            Severity
+                            <ArrowUp v-if="sortBy === 'severity' && sortOrder === 'asc'" class="w-3 h-3" />
+                            <ArrowDown v-else-if="sortBy === 'severity' && sortOrder === 'desc'" class="w-3 h-3" />
+                            <ArrowUpDown v-else class="w-3 h-3 text-muted-foreground/50" />
+                        </div>
+                      </TableHead>
+                      <TableHead class="w-[120px] cursor-pointer hover:bg-muted/50 transition-colors" @click="toggleSort('epss')">
+                        <div class="flex items-center gap-1">
+                            {{ $t('scan_detail.epss_risk') }}
+                            <ArrowUp v-if="sortBy === 'epss' && sortOrder === 'asc'" class="w-3 h-3" />
+                            <ArrowDown v-else-if="sortBy === 'epss' && sortOrder === 'desc'" class="w-3 h-3" />
+                            <ArrowUpDown v-else class="w-3 h-3 text-muted-foreground/50" />
+                        </div>
+                      </TableHead>
                       <TableHead>Package</TableHead>
                       <TableHead>Vulnerability</TableHead>
                       <TableHead class="w-[100px]">Status</TableHead>
