@@ -17,6 +17,7 @@ interface Scan {
     completedAt?: string;
     progress: number; // 0-100
     number?: number;
+    project?: { id: number; name: string; };
 }
 
 interface Vulnerability {
@@ -187,6 +188,16 @@ export const useScanStore = defineStore('scan', () => {
         }
     }
 
+    async function remediateVulnerability(projectId: number, vulnerabilityId: number) {
+        try {
+            const response = await axios.post(`${API_URL}/projects/${projectId}/remediate/${vulnerabilityId}`, {}, getHeaders());
+            return response.data;
+        } catch (error) {
+            console.error('Failed to remediate vulnerability', error);
+            throw error;
+        }
+    }
+
     function reset() {
         scans.value = [];
         currentScan.value = null;
@@ -205,6 +216,7 @@ export const useScanStore = defineStore('scan', () => {
         ignoreVulnerability,
         unignoreVulnerability,
         downloadReport,
+        remediateVulnerability,
         pagination,
         reset,
     };

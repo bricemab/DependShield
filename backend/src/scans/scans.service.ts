@@ -113,7 +113,7 @@ export class ScansService {
     async findOne(scanId: number): Promise<Scan> {
         return this.scansRepository.findOne({
             where: { id: scanId },
-            relations: ['vulnerabilities'],
+            relations: ['vulnerabilities', 'project'],
         });
     }
 

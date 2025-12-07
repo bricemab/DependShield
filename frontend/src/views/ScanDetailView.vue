@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, computed, ref } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { useScanStore } from '../stores/scan';
 import { useAuthStore } from '../stores/auth';
-import { ArrowLeft, Eye, EyeOff, Crown, Download, ArrowUp, ArrowDown, ArrowUpDown, Lock, Box } from 'lucide-vue-next';
+import { Eye, EyeOff, Crown, Download, ArrowUp, ArrowDown, ArrowUpDown, Lock, Box, Wand2, ChevronRight, LayoutDashboard, FolderOpen, Activity } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
 import CardContent from '../components/ui/CardContent.vue';
@@ -13,7 +13,6 @@ import EpssBadge from '../components/EpssBadge.vue';
 import DependencyGraph from '../components/DependencyGraph.vue';
 
 const route = useRoute();
-const router = useRouter();
 const scanStore = useScanStore();
 const authStore = useAuthStore();
 
@@ -140,6 +139,36 @@ const openIgnoreModal = (vuln: any) => {
   showIgnoreModal.value = true;
 };
 
+const showFixModal = ref(false);
+const selectedFixVuln = ref<any>(null);
+
+const handleFix = (vuln: any) => {
+  selectedFixVuln.value = vuln;
+  showFixModal.value = true;
+};
+
+const confirmFix = async () => {
+    if (!selectedFixVuln.value) return;
+    const vuln = selectedFixVuln.value;
+    showFixModal.value = false;
+
+    const toastId = toast.loading(`Fixing ${vuln.packageName}...`);
+    try {
+        const result = await scanStore.remediateVulnerability(scanStore.currentScan!.projectId, vuln.id);
+        toast.success('Pull Request Created!', { 
+            id: toastId,
+            action: {
+                label: 'View PR',
+                onClick: () => window.open(result.prUrl, '_blank')
+            }
+        });
+    } catch (e: any) {
+        toast.error(`Fix failed: ${e.response?.data?.message || e.message}`, { id: toastId });
+    } finally {
+        selectedFixVuln.value = null;
+    }
+};
+
 const handleConfirmIgnore = async () => {
     if (!selectedVulnerability.value) return;
     
@@ -166,6 +195,8 @@ const handleExport = async (format: 'pdf' | 'csv') => {
         toast.error('Failed to export report');
     }
 };
+
+
 import Table from '../components/ui/Table.vue';
 import TableBody from '../components/ui/TableBody.vue';
 import TableCell from '../components/ui/TableCell.vue';
@@ -182,25 +213,37 @@ import TableRow from '../components/ui/TableRow.vue';
       <!-- Header with Breadcrumb-like feel and Actions -->
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-           <button
-            @click="router.back()"
-            class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-2"
-          >
-            <ArrowLeft class="w-4 h-4" />
-            {{ $t('common.back') }}
-          </button>
-          <div class="flex items-center gap-3">
-             <h2 class="text-3xl font-bold tracking-tight">Scan #{{ scanStore.currentScan?.number || scanId }}</h2>
-             <span v-if="scanStore.currentScan?.status === 'running'" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
-                Running
-             </span>
-             <span v-else-if="scanStore.currentScan?.status === 'failed'" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
-                Failed
-             </span>
-          </div>
-          <p class="text-muted-foreground text-sm mt-1">
-             {{ lastUpdated.toLocaleDateString() }} {{ lastUpdated.toLocaleTimeString() }} • Score: <span class="font-semibold text-foreground">{{ scanStore.currentScan?.score ? Number(scanStore.currentScan.score).toFixed(1) : 'N/A' }}</span>
-          </p>
+            <nav class="flex items-center text-sm font-medium text-muted-foreground mb-4 bg-muted/40 px-3 py-1.5 rounded-full w-fit border border-border/40 backdrop-blur-sm">
+                <router-link to="/dashboard" class="hover:text-foreground transition-colors flex items-center gap-1">
+                    <LayoutDashboard class="w-3.5 h-3.5" />
+                </router-link>
+                <ChevronRight class="w-3.5 h-3.5 mx-1 text-muted-foreground/50" />
+                <router-link to="/projects" class="hover:text-foreground transition-colors">
+                    Projects
+                </router-link>
+                <ChevronRight class="w-3.5 h-3.5 mx-1 text-muted-foreground/50" />
+                <router-link :to="`/projects/${projectId}`" class="hover:text-primary transition-colors flex items-center gap-1.5">
+                    <FolderOpen class="w-3.5 h-3.5" />
+                    {{ scanStore.currentScan?.project?.name || 'Project' }}
+                </router-link>
+                <ChevronRight class="w-3.5 h-3.5 mx-1 text-muted-foreground/50" />
+                <span class="text-foreground/80 flex items-center gap-1.5 cursor-default">
+                    <Activity class="w-3.5 h-3.5" />
+                    Scan details
+                </span>
+            </nav>
+            <div class="flex items-center gap-3">
+                <h2 class="text-3xl font-bold tracking-tight">Scan #{{ scanStore.currentScan?.number || scanId }}</h2>
+                <span v-if="scanStore.currentScan?.status === 'running'" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
+                    Running
+                </span>
+                <span v-else-if="scanStore.currentScan?.status === 'failed'" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+                    Failed
+                </span>
+            </div>
+            <p class="text-muted-foreground text-sm mt-1">
+                {{ lastUpdated.toLocaleDateString() }} {{ lastUpdated.toLocaleTimeString() }} • Score: <span class="font-semibold text-foreground">{{ scanStore.currentScan?.score ? Number(scanStore.currentScan.score).toFixed(1) : 'N/A' }}</span>
+            </p>
         </div>
 
         <div class="flex gap-2">
@@ -379,7 +422,17 @@ import TableRow from '../components/ui/TableRow.vue';
                           </span>
                       </TableCell>
                       <TableCell class="text-right">
-                           <div class="flex justify-end gap-2">
+                       <div class="flex justify-end gap-2">
+                                <button
+                                    v-if="!vuln.whitelisted"
+                                    @click="handleFix(vuln)"
+                                    :disabled="!canManageWhitelist"
+                                    class="p-2 h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-blue-50 text-blue-600 hover:text-blue-700 transition-colors relative group border border-blue-200"
+                                    title="Auto-Fix with AI"
+                                >
+                                    <Crown v-if="!canManageWhitelist" class="w-3 h-3 absolute -top-1 -right-1 text-amber-500" />
+                                    <Wand2 class="w-4 h-4" />
+                                </button>
                                 <button
                                     v-if="!vuln.whitelisted"
                                     @click="openIgnoreModal(vuln)"
@@ -462,6 +515,52 @@ import TableRow from '../components/ui/TableRow.vue';
           class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90"
         >
           Confirm & Ignore
+        </button>
+      </template>
+    </Dialog>
+
+    <Dialog
+      :show="showFixModal"
+      title="Auto-Fix Vulnerability"
+      description="DependShield will automatically attempt to fix this vulnerability."
+      @close="showFixModal = false"
+    >
+      <div class="space-y-4 py-2">
+        <div class="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-100 dark:border-blue-900/50">
+            <h4 class="font-medium text-blue-900 dark:text-blue-100 flex items-center gap-2 mb-2">
+                <Wand2 class="w-4 h-4" />
+                Remediation Process
+            </h4>
+            <ol class="list-decimal list-inside text-sm text-blue-800 dark:text-blue-200 space-y-1">
+                <li>Fetch project files from GitHub</li>
+                <li>Upgrade <strong>{{ selectedFixVuln?.packageName }}</strong> to latest version</li>
+                <li>Create a dedicated fix branch</li>
+                <li>Open a Pull Request for your review</li>
+            </ol>
+        </div>
+        
+        <div class="space-y-2">
+             <label class="text-sm font-medium">Target Package</label>
+              <div class="p-3 rounded-md bg-secondary text-sm font-mono flex justify-between items-center">
+                 <span class="font-medium">{{ selectedFixVuln?.packageName }}</span>
+                 <span class="text-xs px-2 py-0.5 rounded-full bg-background border text-muted-foreground">{{ selectedFixVuln?.version }}</span>
+              </div>
+        </div>
+      </div>
+
+      <template #footer>
+        <button
+          @click="showFixModal = false"
+          class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10 px-4 py-2 hover:bg-secondary text-secondary-foreground"
+        >
+          Cancel
+        </button>
+        <button
+          @click="confirmFix"
+          class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-sm"
+        >
+          <Wand2 class="w-4 h-4 mr-2" />
+          Create Pull Request
         </button>
       </template>
     </Dialog>

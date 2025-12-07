@@ -182,6 +182,95 @@ export class GithubService {
         return result;
     }
 
+    async createBranch(repoUrl: string, baseBranch: string, newBranch: string, token: string): Promise<void> {
+        const { owner, repo } = this.parseRepoUrl(repoUrl);
+        const octokit = new Octokit({ auth: token });
+        try {
+            const sha = await this.getCommitSha(repoUrl, baseBranch, token);
+            await octokit.git.createRef({
+                owner,
+                repo,
+                ref: `refs/heads/${newBranch}`,
+                sha,
+            });
+            this.logger.log(`Created branch ${newBranch} from ${baseBranch} on ${owner}/${repo}`);
+        } catch (error) {
+            this.logger.error(`Failed to create branch ${newBranch}: ${error.message}`);
+            throw error;
+        }
+    }
+
+    async pushChanges(repoUrl: string, branch: string, files: { path: string, content: string }[], message: string, token: string): Promise<void> {
+        const { owner, repo } = this.parseRepoUrl(repoUrl);
+        const octokit = new Octokit({ auth: token });
+        try {
+            // 1. Get current commit
+            const currentCommitSha = await this.getCommitSha(repoUrl, branch, token);
+
+            // 2. Get current tree SHA
+            const { data: commitData } = await octokit.git.getCommit({
+                owner,
+                repo,
+                commit_sha: currentCommitSha,
+            });
+            const treeSha = commitData.tree.sha;
+
+            // 3. Create new tree
+            const { data: newTree } = await octokit.git.createTree({
+                owner,
+                repo,
+                base_tree: treeSha,
+                tree: files.map(f => ({
+                    path: f.path,
+                    mode: '100644', // File
+                    type: 'blob',
+                    content: f.content,
+                })),
+            });
+
+            // 4. Create new commit
+            const { data: newCommit } = await octokit.git.createCommit({
+                owner,
+                repo,
+                message,
+                tree: newTree.sha,
+                parents: [currentCommitSha],
+            });
+
+            // 5. Update reference
+            await octokit.git.updateRef({
+                owner,
+                repo,
+                ref: `heads/${branch}`,
+                sha: newCommit.sha,
+            });
+            this.logger.log(`Pushed changes to ${branch} on ${owner}/${repo}`);
+        } catch (error) {
+            this.logger.error(`Failed to push changes to ${branch}: ${error.message}`);
+            throw error;
+        }
+    }
+
+    async createPullRequest(repoUrl: string, title: string, body: string, head: string, base: string, token: string): Promise<string> {
+        const { owner, repo } = this.parseRepoUrl(repoUrl);
+        const octokit = new Octokit({ auth: token });
+        try {
+            const { data } = await octokit.pulls.create({
+                owner,
+                repo,
+                title,
+                body,
+                head,
+                base,
+            });
+            this.logger.log(`Created PR #${data.number} on ${owner}/${repo}`);
+            return data.html_url;
+        } catch (error) {
+            this.logger.error(`Failed to create PR: ${error.message}`);
+            throw error;
+        }
+    }
+
     private parseRepoUrl(repoUrl: string): { owner: string, repo: string } {
         const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/\.]+)/);
         if (!match) {

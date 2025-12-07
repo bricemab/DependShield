@@ -20,6 +20,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { RedisModule } from './redis/redis.module';
 import { EpssModule } from './epss/epss.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { RemediationModule } from './remediation/remediation.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     EpssModule,
     DashboardModule,
     WebhooksModule,
+    RemediationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

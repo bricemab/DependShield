@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
 import { useScanStore } from '../stores/scan';
-import { Play, ArrowLeft, FileText, Shield, Package2, Trash2, LayoutDashboard, List, Settings, EyeOff, GitBranch, ChevronRight, Clock, Webhook, Lock } from 'lucide-vue-next';
+import { Play, ArrowLeft, FileText, Shield, Package2, Trash2, LayoutDashboard, List, Settings, EyeOff, GitBranch, ChevronRight, Clock, Webhook, Lock, FolderOpen } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
@@ -477,13 +477,20 @@ onMounted(async () => {
       <!-- Header -->
       <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <button
-            @click="router.push('/projects')"
-            class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-4"
-          >
-            <ArrowLeft class="w-4 h-4" />
-            {{ $t('project_detail.back_to_projects') }}
-          </button>
+           <nav class="flex items-center text-sm font-medium text-muted-foreground mb-4 bg-muted/40 px-3 py-1.5 rounded-full w-fit border border-border/40 backdrop-blur-sm">
+            <router-link to="/dashboard" class="hover:text-foreground transition-colors flex items-center gap-1">
+                <LayoutDashboard class="w-3.5 h-3.5" />
+            </router-link>
+            <ChevronRight class="w-3.5 h-3.5 mx-1 text-muted-foreground/50" />
+            <router-link to="/projects" class="hover:text-foreground transition-colors flex items-center gap-1">
+                Projects
+            </router-link>
+            <ChevronRight class="w-3.5 h-3.5 mx-1 text-muted-foreground/50" />
+            <span class="text-foreground/80 flex items-center gap-1.5 cursor-default">
+                <FolderOpen class="w-3.5 h-3.5" />
+                {{ project?.name }}
+            </span>
+          </nav>
           <h2 class="text-3xl font-bold tracking-tight">{{ project?.name }}</h2>
           <p class="text-muted-foreground flex items-center gap-2 mt-1">
             <Package2 class="w-4 h-4" /> {{ project?.repositoryName }}
