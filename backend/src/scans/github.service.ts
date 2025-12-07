@@ -77,6 +77,15 @@ export class GithubService {
         }
     }
 
+    async checkFileExists(repoUrl: string, path: string, branch: string, token: string): Promise<boolean> {
+        try {
+            await this.getFileContent(repoUrl, path, branch, token);
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
+
     private parseRepoUrl(repoUrl: string): { owner: string, repo: string } {
         const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/\.]+)/);
         if (!match) {

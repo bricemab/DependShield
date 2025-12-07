@@ -74,9 +74,20 @@ const filteredVulnerabilities = computed(() => {
   }
 
   if (selectedSeverity.value === 'all') {
-    return vulns;
+    return vulns.sort((a, b) => {
+        const severityOrder: Record<string, number> = { 'critical': 4, 'high': 3, 'moderate': 2, 'low': 1 };
+        const orderA = severityOrder[a.severity?.toLowerCase()] || 0;
+        const orderB = severityOrder[b.severity?.toLowerCase()] || 0;
+        return orderB - orderA;
+    });
   }
-  return vulns.filter(v => v.severity === selectedSeverity.value);
+  return vulns.filter(v => v.severity === selectedSeverity.value).sort((a, b) => {
+      // Even when filtered, sorting by severity makes sense if we have sub-severities or just for consistency
+        const severityOrder: Record<string, number> = { 'critical': 4, 'high': 3, 'moderate': 2, 'low': 1 };
+        const orderA = severityOrder[a.severity?.toLowerCase()] || 0;
+        const orderB = severityOrder[b.severity?.toLowerCase()] || 0;
+        return orderB - orderA;
+  });
 });
 
 const getSeverityColor = (severity: string) => {

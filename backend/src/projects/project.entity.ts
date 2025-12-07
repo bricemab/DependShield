@@ -1,5 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany } from 'typeorm';
 import { User } from '../users/user.entity';
+import { Webhook } from '../webhooks/webhook.entity';
 
 export enum PackageManager {
     NPM = 'npm',
@@ -65,4 +66,7 @@ export class Project {
 
     @UpdateDateColumn()
     updatedAt: Date;
+
+    @OneToMany(() => Webhook, webhook => webhook.project)
+    webhooks: Webhook[];
 }

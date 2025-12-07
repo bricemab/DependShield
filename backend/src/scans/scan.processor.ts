@@ -9,11 +9,13 @@ import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { Scan, ScanStatus } from './scan.entity';
-import { Vulnerability, VulnerabilitySeverity } from './vulnerability.entity';
+import { Vulnerability, VulnerabilitySeverity, VulnerabilityType } from './vulnerability.entity';
 import { NotificationsService } from '../notifications/notifications.service';
 import { WhitelistService } from './whitelist.service';
 import { GithubService } from './github.service';
 import { UsersService } from '../users/users.service';
+import { WebhooksService } from '../webhooks/webhooks.service';
+import { WebhookEvent } from '../webhooks/webhook.entity';
 
 const execAsync = promisify(exec);
 
@@ -31,6 +33,7 @@ export class ScanProcessor {
         private whitelistService: WhitelistService,
         private githubService: GithubService,
         private usersService: UsersService,
+        private webhooksService: WebhooksService,
     ) { }
 
     @Process('scan')
@@ -92,20 +95,11 @@ export class ScanProcessor {
             }
 
             // Determine lockfile path (default to package-lock.json if not specified)
-            // Note: scan.project.lockfilePath might be empty or relative
-            let lockFilename = 'package-lock.json';
-            const pm = scan.project.packageManager;
-            if (pm === 'yarn') lockFilename = 'yarn.lock';
-            if (pm === 'pnpm') lockFilename = 'pnpm-lock.yaml';
-            if (pm === 'bun') lockFilename = 'bun.lockb';
-
-            // If project has specific lockfilePath, use it. 
-            // BUT: project.lockfilePath is usually the path TO the file, e.g. "backend/package-lock.json"
-            // If it's just ".", we assume the file name based on PM.
+            const lockFilename = this.getLockfilename(scan.project.packageManager);
             let targetPath = lockFilename;
+
             if (scan.project.lockfilePath && scan.project.lockfilePath !== '.') {
-                // Check if lockfilePath ends with the file extension or is a directory
-                if (scan.project.lockfilePath.endsWith('.json') || scan.project.lockfilePath.endsWith('.lock') || scan.project.lockfilePath.endsWith('.yaml') || scan.project.lockfilePath.endsWith('.lockb')) {
+                if (path.extname(scan.project.lockfilePath)) {
                     targetPath = scan.project.lockfilePath;
                 } else {
                     targetPath = path.join(scan.project.lockfilePath, lockFilename).replace(/\\/g, '/');
@@ -120,26 +114,11 @@ export class ScanProcessor {
                 user.accessToken
             );
 
-            // Write lockfile to temp dir
-            // We need to maintain the directory structure if it is a monorepo, OR we just put it in root of temp dir and run audit there?
-            // npm audit needs valid package-lock.json. 
-            // If we just put it in root, `npm audit` works.
-            const localLockfilePath = path.join(scanDir, 'package-lock.json'); // Always name it package-lock.json for npm audit? No, depends on PM.
-            // For yarn, it needs yarn.lock AND package.json usually? Yarn audit sends the lockfile to registry?
-            // Actually, `npm audit` works best with `package-lock.json`. 
-            // Simplification: Write it with the correct name in scanDir.
-
-            // Note: targetPath might be deeply nested "backend/package-lock.json". 
-            // We can just flatten it to "scanDir/package-lock.json" for the audit command context, 
-            // UNLESS the audit command parses relative paths in dependencies?
-            // Usually dependencies in lockfile are registry URLs, so location doesn't matter much for standard repos.
-
             const savedLockfilename = path.basename(targetPath);
             await fs.writeFile(path.join(scanDir, savedLockfilename), lockfileContent);
-
             this.logger.log(`Lockfile ${savedLockfilename} fetched and saved to ${scanDir}`);
 
-            // Also fetch package.json just in case (some auditors need it for name/version)
+            // Also fetch package.json just in case
             try {
                 const packageJsonPath = targetPath.replace(savedLockfilename, 'package.json');
                 const packageJsonContent = await this.githubService.getFileContent(
@@ -163,30 +142,32 @@ export class ScanProcessor {
             const prodAuditResult = await this.runAudit(scanDir, scan.project.packageManager, true);
             const prodVulnerabilities = this.parseAuditResult(prodAuditResult, scan.project.packageManager);
 
-            // Map prod vulnerabilities for quick lookup (key = packageName + cve or just packageName for now?)
-            // A vulnerability is defined by package name + advisor ID / CVE.
+            // Map prod vulnerabilities
             const prodVulnSet = new Set<string>();
             prodVulnerabilities.forEach(v => {
-                // Create a unique key. cve might be null, so use advisory ID if available, otherwise title?
-                // Simple key: packageName + version (range) + cve
                 prodVulnSet.add(`${v.packageName}:${v.version}:${v.cve || v.title}`);
             });
 
             const vulnerabilities: Partial<Vulnerability>[] = fullVulnerabilities.map(v => {
                 const key = `${v.packageName}:${v.version}:${v.cve || v.title}`;
-                // If it is NOT in prod vulns, it is a dev dependency
                 const isDevDependency = !prodVulnSet.has(key);
-                return { ...v, isDevDependency };
+                return { ...v, isDevDependency, type: VulnerabilityType.DEPENDENCY };
             });
 
-            // Fetch whitelist rules for this project
+            // Run Docker Scan
+            const dockerVulns = await this.scanDocker(scan.project.repositoryUrl, scan.project.branch, user.accessToken);
+            vulnerabilities.push(...dockerVulns);
+
+            // Run Secret Scan
+            const secretVulns = await this.scanSecrets(scan.project.repositoryUrl, scan.project.branch, user.accessToken);
+            vulnerabilities.push(...secretVulns);
+
+            // Fetch whitelist rules
             const whitelistRules = await this.whitelistService.findAllByProject(scan.project.id);
 
             for (const vuln of vulnerabilities) {
-                // Check if whitelisted
                 const isWhitelisted = whitelistRules.some(rule => {
                     if (rule.packageName !== vuln.packageName) return false;
-                    // If rule has CVE, it must match. If rule has no CVE, it matches all CVEs for this package.
                     if (rule.cve && rule.cve !== vuln.cve) return false;
                     return true;
                 });
@@ -199,7 +180,7 @@ export class ScanProcessor {
                 await this.vulnerabilitiesRepository.save(vulnerability);
             }
 
-            // Calculate score (exclude whitelisted)
+            // Calculate score
             const activeVulnerabilities = await this.vulnerabilitiesRepository.find({
                 where: { scanId: scan.id, whitelisted: false }
             });
@@ -212,12 +193,15 @@ export class ScanProcessor {
             scan.completedAt = new Date();
             await this.scansRepository.save(scan);
 
-            // Send email notification if enabled
+            // Email Notification
             if (scan.project.emailEnabled && scan.project.user.email) {
                 await this.notificationsService.sendScanResultEmail(scan.project.user.email, scan);
             }
 
-            // Update GitHub Status to SUCCESS or FAILURE
+            // Webhooks Notification (Success)
+            await this.webhooksService.triggerWebhook(scan.project, scan, WebhookEvent.SCAN_COMPLETED);
+
+            // GitHub Status
             if (scan.commitSha) {
                 const statusState = activeVulnerabilities.length > 0 ? 'failure' : 'success';
                 const description = activeVulnerabilities.length > 0
@@ -242,12 +226,11 @@ export class ScanProcessor {
             scan.completedAt = new Date();
             await this.scansRepository.save(scan);
 
+            // Webhooks Notification (Failure)
+            await this.webhooksService.triggerWebhook(scan.project, scan, WebhookEvent.SCAN_FAILED);
+
             // Update GitHub Status to ERROR
             if (scan.commitSha) {
-                // We need user token, but 'user' might be undefined if we failed before fetching it.
-                // We will try to fetch it again if possible, or just skip.
-                // To be safe, we only do this if we have user accessible. 
-                // Actually, we can just wrap this.
                 try {
                     const userForError = await this.usersService.findOne(scan.project.user.id);
                     if (userForError && userForError.accessToken) {
@@ -279,10 +262,15 @@ export class ScanProcessor {
         }
     }
 
+    private getLockfilename(pm: string): string {
+        if (pm === 'yarn') return 'yarn.lock';
+        if (pm === 'pnpm') return 'pnpm-lock.yaml';
+        if (pm === 'bun') return 'bun.lockb';
+        return 'package-lock.json';
+    }
+
     private async runAudit(dir: string, packageManager: string, prodOnly: boolean = false): Promise<string> {
         let command: string;
-
-        // Helper to format flags
         const prodFlag = prodOnly ? (packageManager === 'pnpm' ? '--prod' : '--only=prod') : '';
 
         switch (packageManager) {
@@ -290,55 +278,38 @@ export class ScanProcessor {
                 command = `npm audit --json ${prodFlag}`;
                 break;
             case 'yarn':
-                // Yarn classic doesn't support --only=prod in audit --json easily, but try --groups dependencies 
-                // However, user prompt says "npm audit, yarn audit".
-                // If prodOnly is requested and it's yarn, we might skip or try best effort. 
-                // Yarn 1: `yarn audit --json` returns all. 
-                // Let's assume full audit for yarn if prodFlag fails, OR just don't use flag if it breaks.
-                // For MVP, if yarn, we ignore prodOnly flag to prevent errors, meaning isDevDependency will likely be false always (conservative).
                 command = 'yarn audit --json';
                 if (prodOnly) {
-                    // Yarn classic `yarn audit --production` might work? No.
-                    this.logger.warn('Yarn audit does not support production-only filtering reliably via JSON. treating all as runtime.');
+                    this.logger.warn('Yarn audit does not support production-only filtering reliably via JSON.');
                 }
                 break;
             case 'pnpm':
                 command = `pnpm audit --json ${prodFlag}`;
                 break;
             case 'bun':
-                command = 'bun audit --json'; // Bun audit flags are still maturing
+                command = 'bun audit --json';
                 break;
             default:
                 command = `npm audit --json ${prodFlag}`;
         }
 
         try {
-            this.logger.log(`Executing command '${command}' in directory '${dir}'`);
-
-            // If dir points to a file, get the directory
             let cwd = dir;
             if (fs.existsSync(dir) && fs.lstatSync(dir).isFile()) {
                 cwd = path.dirname(dir);
-                this.logger.log(`Corrected cwd from file to directory: '${cwd}'`);
-            } else if (!fs.existsSync(dir)) {
-                this.logger.error(`Directory '${dir}' does not exist!`);
             }
 
             const { stdout } = await execAsync(command, {
                 cwd,
                 timeout: 60000,
-                maxBuffer: 50 * 1024 * 1024 // 50MB buffer
+                maxBuffer: 50 * 1024 * 1024
             });
-            this.logger.log(`Audit command executed successfully (0 vulnerabilities)`);
             return stdout;
         } catch (error) {
-            // npm audit returns non-zero exit code when vulnerabilities are found
             if (error.stdout) {
-                this.logger.log(`Audit finished with exit code ${error.code} (vulnerabilities found). Parsing output...`);
                 return error.stdout;
             }
-
-            this.logger.error(`Audit command failed completely: ${error.message}`);
+            this.logger.error(`Audit command failed: ${error.message}`);
             return '{}';
         }
     }
@@ -349,10 +320,9 @@ export class ScanProcessor {
             const vulnerabilities: Partial<Vulnerability>[] = [];
 
             if (packageManager === 'npm') {
-                // Parse npm audit format
                 const advisories = result.vulnerabilities || {};
                 for (const [packageName, data] of Object.entries(advisories as any)) {
-                    const vulnData = data as any; // Type assertion for dynamic audit data
+                    const vulnData = data as any;
                     vulnerabilities.push({
                         packageName,
                         version: vulnData.range || 'unknown',
@@ -364,7 +334,6 @@ export class ScanProcessor {
                     });
                 }
             }
-
             return vulnerabilities;
         } catch (error) {
             this.logger.error('Failed to parse audit result:', error);
@@ -374,42 +343,94 @@ export class ScanProcessor {
 
     private mapSeverity(severity: string): VulnerabilitySeverity {
         switch (severity?.toLowerCase()) {
-            case 'critical':
-                return VulnerabilitySeverity.CRITICAL;
-            case 'high':
-                return VulnerabilitySeverity.HIGH;
-            case 'moderate':
-            case 'medium':
-                return VulnerabilitySeverity.MODERATE;
-            case 'low':
-            default:
-                return VulnerabilitySeverity.LOW;
+            case 'critical': return VulnerabilitySeverity.CRITICAL;
+            case 'high': return VulnerabilitySeverity.HIGH;
+            case 'moderate': case 'medium': return VulnerabilitySeverity.MODERATE;
+            case 'low': default: return VulnerabilitySeverity.LOW;
         }
     }
 
     private calculateScore(vulnerabilities: Partial<Vulnerability>[]): number {
         if (vulnerabilities.length === 0) return 100;
-
         let totalWeight = 0;
         for (const vuln of vulnerabilities) {
-            switch (vuln.severity) {
-                case VulnerabilitySeverity.CRITICAL:
-                    totalWeight += 10;
-                    break;
-                case VulnerabilitySeverity.HIGH:
-                    totalWeight += 5;
-                    break;
-                case VulnerabilitySeverity.MODERATE:
-                    totalWeight += 2;
-                    break;
-                case VulnerabilitySeverity.LOW:
-                    totalWeight += 1;
-                    break;
+            const sev = vuln.severity;
+            if (sev === VulnerabilitySeverity.CRITICAL) totalWeight += 10;
+            else if (sev === VulnerabilitySeverity.HIGH) totalWeight += 5;
+            else if (sev === VulnerabilitySeverity.MODERATE) totalWeight += 2;
+            else if (sev === VulnerabilitySeverity.LOW) totalWeight += 1;
+        }
+        return Math.min(100, Math.max(0, 100 - totalWeight));
+    }
+
+    private async scanDocker(repoUrl: string, branch: string, token: string): Promise<Partial<Vulnerability>[]> {
+        const vulns: Partial<Vulnerability>[] = [];
+        try {
+            const dockerfileContent = await this.githubService.getFileContent(repoUrl, 'Dockerfile', branch, token);
+
+            if (/FROM\s+[\w\-\/\.]+(:latest)?\s+/i.test(dockerfileContent) || !/FROM\s+[\w\-\/\.]+:/i.test(dockerfileContent)) {
+                if (/FROM\s+[\w\-\/\.]+:latest/i.test(dockerfileContent) || /FROM\s+[\w\-\/\.]+\s+$/m.test(dockerfileContent)) {
+                    vulns.push({
+                        packageName: 'Dockerfile',
+                        version: 'current',
+                        severity: VulnerabilitySeverity.MODERATE,
+                        title: 'Docker Image uses "latest" tag',
+                        description: 'Using the "latest" tag leads to non-reproducible builds and potential breakage.',
+                        type: VulnerabilityType.DOCKER,
+                        isDevDependency: false
+                    });
+                }
             }
+
+            if (!/USER\s+\w+/i.test(dockerfileContent)) {
+                vulns.push({
+                    packageName: 'Dockerfile',
+                    version: 'current',
+                    severity: VulnerabilitySeverity.MODERATE,
+                    title: 'Container runs as root',
+                    description: 'No USER instruction found. Running as root is a security risk.',
+                    type: VulnerabilityType.DOCKER,
+                    isDevDependency: false
+                });
+            }
+
+            if (/ADD\s+/i.test(dockerfileContent)) {
+                vulns.push({
+                    packageName: 'Dockerfile',
+                    version: 'current',
+                    severity: VulnerabilitySeverity.LOW,
+                    title: 'Use COPY instead of ADD',
+                    description: 'ADD has features (remote URL fetching, tar extraction) that can be dangerous. Use COPY for local files.',
+                    type: VulnerabilityType.DOCKER,
+                    isDevDependency: false
+                });
+            }
+        } catch (e) {
+            this.logger.log(`No Dockerfile found or could not be scanned: ${e.message}`);
+        }
+        return vulns;
+    }
+
+    private async scanSecrets(repoUrl: string, branch: string, token: string): Promise<Partial<Vulnerability>[]> {
+        const vulns: Partial<Vulnerability>[] = [];
+
+        this.logger.log(`[SecretScan] Checking for secrets in ${repoUrl} on branch ${branch}...`);
+
+        const hasEnv = await this.githubService.checkFileExists(repoUrl, '.env', branch, token);
+        this.logger.log(`[SecretScan] .env detection result: ${hasEnv}`);
+
+        if (hasEnv) {
+            vulns.push({
+                packageName: 'Secret Leak',
+                version: 'N/A',
+                severity: VulnerabilitySeverity.CRITICAL,
+                title: '.env file committed to repository',
+                description: 'The .env file may contain sensitive production secrets. Remove it from git immediately.',
+                type: VulnerabilityType.SECRET,
+                isDevDependency: false
+            });
         }
 
-        // Score from 0 to 100 (100 = no vulnerabilities)
-        const score = Math.max(0, 100 - totalWeight);
-        return Math.round(score * 10) / 10;
+        return vulns;
     }
 }

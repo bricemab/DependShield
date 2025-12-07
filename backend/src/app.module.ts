@@ -16,6 +16,7 @@ import { ReportsModule } from './reports/reports.module';
 import configuration from './config/configuration';
 
 import { AuditModule } from './audit/audit.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { AuditModule } from './audit/audit.module';
     SchedulerModule,
     ReportsModule,
     AuditModule,
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [AppService],

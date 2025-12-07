@@ -27,7 +27,6 @@ Fichier de référence interne pour l’IA
 ## 3. Backlog (Kanban)
 
 ### TODO
-- [ ] Feature D: Secrets & Docker Scanning
 - [ ] Webhooks (Slack/Discord/Teams)
 
 ### DOING
@@ -41,6 +40,7 @@ Fichier de référence interne pour l’IA
 - [x] Feature A: Scan "Light" via API (Download lockfile only)
 - [x] Feature B: GitHub Status Checks Integration
 - [x] Feature C: Dev vs Runtime Dependency Distinction
+- [x] Feature D: Secrets & Docker Scanning
 - [x] Export des rapports (PDF, CSV)
 - [x] UI Polish: Replace native alerts with Shadcn Sonner.
 - [x] Gate Feature: Monorepo Support (Block non-root lockfiles for Starter).

@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
 import { useScanStore } from '../stores/scan';
-import { Play, ArrowLeft, FileText, Shield, Package2, Trash2, LayoutDashboard, List, Settings, EyeOff, GitBranch, ChevronRight, Clock } from 'lucide-vue-next';
+import { Play, ArrowLeft, FileText, Shield, Package2, Trash2, LayoutDashboard, List, Settings, EyeOff, GitBranch, ChevronRight, Clock, Webhook, Lock } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
@@ -11,10 +11,13 @@ import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
 import DashboardLayout from '../layouts/DashboardLayout.vue';
 
+import { useAuthStore } from '../stores/auth';
+
 const route = useRoute();
 const router = useRouter();
 const projectStore = useProjectStore();
 const scanStore = useScanStore();
+const authStore = useAuthStore();
 
 const projectId = computed(() => parseInt(route.params.id as string));
 const project = computed(() => projectStore.projects.find(p => p.id === projectId.value));
@@ -338,16 +341,76 @@ const fetchAuditLogs = async () => {
     }
 };
 
+const formatAuditAction = (action: string) => {
+    return action ? action.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) : '';
+};
+
+// --- Webhooks ---
+const webhooks = ref<any[]>([]);
+const isWebhooksLoading = ref(false);
+const newWebhook = ref({
+    url: '',
+    type: 'SLACK',
+    events: ['scan.completed', 'scan.failed'], 
+    isActive: true
+});
+
+const fetchWebhooks = async () => {
+    try {
+         const token = localStorage.getItem('ds_token')?.replace(/^"|"$/g, '');
+         const response = await axios.get(`http://localhost:3000/projects/${projectId.value}/webhooks`, {
+             headers: { Authorization: `Bearer ${token}` }
+         });
+         webhooks.value = response.data;
+    } catch (e) {
+        console.error('Failed to fetch webhooks', e);
+    }
+};
+
+const handleCreateWebhook = async () => {
+    if (!newWebhook.value.url) return;
+    
+    try {
+        const token = localStorage.getItem('ds_token')?.replace(/^"|"$/g, '');
+        await axios.post(`http://localhost:3000/projects/${projectId.value}/webhooks`, newWebhook.value, {
+             headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success('Webhook created');
+        newWebhook.value.url = ''; // Reset
+        fetchWebhooks();
+    } catch (e: any) {
+        if (e.response?.status === 403) {
+            toast.error('Plan Restricted', {
+                description: 'Upgrade to PRO to use Webhooks.'
+            });
+        } else {
+            toast.error('Failed to create webhook');
+        }
+    }
+};
+
+const handleDeleteWebhook = async (id: string) => {
+    if (!confirm('Delete this webhook?')) return;
+     try {
+        const token = localStorage.getItem('ds_token')?.replace(/^"|"$/g, '');
+        await axios.delete(`http://localhost:3000/projects/${projectId.value}/webhooks/${id}`, {
+             headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success('Webhook deleted');
+        fetchWebhooks();
+    } catch (e) {
+        toast.error('Failed to delete webhook');
+    }
+};
+
 const switchTab = (tab: string) => {
     console.log('Switching tab to:', tab);
     activeTab.value = tab;
     if (tab === 'activity') {
         fetchAuditLogs();
+    } else if (tab === 'webhooks') {
+        fetchWebhooks();
     }
-};
-
-const formatAuditAction = (action: string) => {
-    return action ? action.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase()) : '';
 };
 
 // --- Watcher for Reactivity ---
@@ -491,6 +554,18 @@ onMounted(async () => {
           >
             <Settings class="w-4 h-4" />
             Configuration
+          </button>
+          <button
+            @click="switchTab('webhooks')"
+            :class="[
+              activeTab === 'webhooks'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:border-gray-300 hover:text-foreground',
+              'group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm gap-2'
+            ]"
+          >
+            <Webhook class="w-4 h-4" />
+            Webhooks
           </button>
           <button
             @click="switchTab('activity')"
@@ -743,6 +818,89 @@ onMounted(async () => {
             </div>
           </CardContent>
         </Card>
+      </div>
+      
+      <!-- Tab Content: Webhooks -->
+      <div v-show="activeTab === 'webhooks'" class="space-y-6">
+        <div v-if="authStore.user?.plan !== 'PRO' && authStore.user?.plan !== 'ENTERPRISE'" class="flex flex-col items-center justify-center py-12 bg-muted/30 rounded-lg border border-dashed">
+             <div class="bg-primary/10 p-4 rounded-full mb-4">
+                 <Lock class="w-8 h-8 text-primary" />
+             </div>
+             <h3 class="text-xl font-bold mb-2">Unlock Webhooks</h3>
+             <p class="text-muted-foreground text-center max-w-md mb-6">
+                 Get notified instantly on Slack or Discord when vulnerabilities are found. 
+                 Upgrade to PRO or ENTERPRISE to access this feature.
+             </p>
+             <button disabled class="bg-primary text-primary-foreground px-4 py-2 rounded-md opacity-50 cursor-not-allowed">
+                 Upgrade Plan
+             </button>
+        </div>
+
+        <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
+             <!-- Create Webhook -->
+             <Card>
+                 <CardHeader>
+                     <CardTitle>Add Webhook</CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                     <div class="space-y-4">
+                         <div class="space-y-2">
+                             <label class="text-sm font-medium">Webhook URL</label>
+                             <input 
+                                 v-model="newWebhook.url"
+                                 type="text" 
+                                 placeholder="https://hooks.slack.com/services/..." 
+                                 class="w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary"
+                             />
+                         </div>
+                         <div class="space-y-2">
+                             <label class="text-sm font-medium">Type</label>
+                             <select v-model="newWebhook.type" class="w-full px-3 py-2 bg-background border rounded-md focus:outline-none focus:ring-2 focus:ring-primary">
+                                 <option value="SLACK">Slack</option>
+                                 <option value="DISCORD">Discord</option>
+                                 <option value="TEAMS">Microsoft Teams</option>
+                                 <option value="GENERIC">Generic (JSON)</option>
+                             </select>
+                         </div>
+                         <button 
+                             @click="handleCreateWebhook"
+                             :disabled="!newWebhook.url"
+                             class="w-full bg-primary text-primary-foreground py-2 rounded-md hover:bg-primary/90 disabled:opacity-50"
+                         >
+                             Add Webhook
+                         </button>
+                     </div>
+                 </CardContent>
+             </Card>
+
+             <!-- Existing Webhooks -->
+             <Card>
+                 <CardHeader>
+                     <CardTitle>Active Webhooks</CardTitle>
+                 </CardHeader>
+                 <CardContent>
+                     <div v-if="webhooks.length === 0" class="text-center py-8 text-muted-foreground">
+                         No webhooks configured.
+                     </div>
+                     <ul v-else class="space-y-3">
+                         <li v-for="hook in webhooks" :key="hook.id" class="flex justify-between items-center p-3 border rounded-md">
+                             <div class="flex items-center gap-3 overflow-hidden">
+                                  <div class="p-2 bg-secondary rounded-md">
+                                     <Webhook class="w-4 h-4" />
+                                  </div>
+                                  <div class="flex flex-col min-w-0">
+                                      <span class="font-medium text-sm truncate w-40">{{ hook.url }}</span>
+                                      <span class="text-xs text-muted-foreground">{{ hook.type }}</span>
+                                  </div>
+                             </div>
+                             <button @click="handleDeleteWebhook(hook.id)" class="text-red-500 p-2 hover:bg-red-50 rounded-md">
+                                 <Trash2 class="w-4 h-4" />
+                             </button>
+                         </li>
+                     </ul>
+                 </CardContent>
+             </Card>
+        </div>
       </div>
 
       <!-- Tab Content: Whitelist (Ignored) -->
