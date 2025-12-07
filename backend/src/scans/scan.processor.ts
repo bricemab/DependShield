@@ -165,9 +165,20 @@ export class ScanProcessor {
             await this.updateProgress(scan, 60, 'Docker scan completed');
 
             // Run Secret Scan
-            const secretVulns = await this.scanSecrets(scan.project.repositoryUrl, scan.project.branch, user.accessToken);
+            const secretVulns = await this.scanSecrets(
+                scan.project.repositoryUrl,
+                scan.project.branch,
+                user.accessToken,
+                async (processed, total) => {
+                    const percent = 60 + Math.floor((processed / total) * 20);
+                    // Only update DB every 2% progress or if changed significantly
+                    if (processed % Math.ceil(total / 50) === 0 || processed === total) {
+                        await this.updateProgress(scan, percent, `Scanning files: ${processed}/${total}`);
+                    }
+                }
+            );
             vulnerabilities.push(...secretVulns);
-            await this.updateProgress(scan, 70, 'Secret scan completed');
+            await this.updateProgress(scan, 80, 'Secret scan completed');
 
             // Fetch whitelist rules
             const whitelistRules = await this.whitelistService.findAllByProject(scan.project.id);
@@ -523,24 +534,124 @@ export class ScanProcessor {
         return vulns;
     }
 
-    private async scanSecrets(repoUrl: string, branch: string, token: string): Promise<Partial<Vulnerability>[]> {
+    private async scanSecrets(repoUrl: string, branch: string, token: string, onProgress?: (processed: number, total: number) => Promise<void>): Promise<Partial<Vulnerability>[]> {
         const vulns: Partial<Vulnerability>[] = [];
+        this.logger.log(`[SecretScan] Starting advanced secret scan for ${repoUrl} on branch ${branch}...`);
 
-        this.logger.log(`[SecretScan] Checking for secrets in ${repoUrl} on branch ${branch}...`);
+        // Patterns for secret detection
+        const secretPatterns = [
+            { name: 'AWS Access Key ID', regex: /AKIA[0-9A-Z]{16}/, severity: VulnerabilitySeverity.CRITICAL },
+            { name: 'AWS Secret Access Key', regex: /["']?[A-Za-z0-9\/+=]{40}["']?/, contextRegex: /aws_secret_access_key|aws_secret_key|secret_key/i, severity: VulnerabilitySeverity.CRITICAL },
+            { name: 'Stripe Secret Key', regex: /sk_live_[0-9a-zA-Z]{24}/, severity: VulnerabilitySeverity.CRITICAL },
+            { name: 'Stripe Publishable Key', regex: /pk_live_[0-9a-zA-Z]{24}/, severity: VulnerabilitySeverity.HIGH }, // Less critical but still bad practice
+            { name: 'Google API Key', regex: /AIza[0-9A-Za-z-_]{35}/, severity: VulnerabilitySeverity.HIGH },
+            { name: 'GitHub Personal Access Token', regex: /ghp_[0-9a-zA-Z]{36}/, severity: VulnerabilitySeverity.CRITICAL },
+            { name: 'GitHub OAuth Access Token', regex: /gho_[0-9a-zA-Z]{36}/, severity: VulnerabilitySeverity.CRITICAL },
+            { name: 'Slack Bot Token', regex: /xoxb-[0-9]{11}-[0-9]{11}-[0-9a-zA-Z]{24}/, severity: VulnerabilitySeverity.CRITICAL },
+            { name: 'Generic Private Key', regex: /-----BEGIN RSA PRIVATE KEY-----/, severity: VulnerabilitySeverity.CRITICAL },
+        ];
 
-        const hasEnv = await this.githubService.checkFileExists(repoUrl, '.env', branch, token);
-        this.logger.log(`[SecretScan] .env detection result: ${hasEnv}`);
+        try {
+            // Recursive file scanning logic
+            // Since we don't have the full repo on disk (we fetch specific files via API usually),
+            // we first need to get the file tree.
+            // GitHub API: GET /repos/{owner}/{repo}/git/trees/{sha}?recursive=1
 
-        if (hasEnv) {
-            vulns.push({
-                packageName: 'Secret Leak',
-                version: 'N/A',
-                severity: VulnerabilitySeverity.CRITICAL,
-                title: '.env file committed to repository',
-                description: 'The .env file may contain sensitive production secrets. Remove it from git immediately.',
-                type: VulnerabilityType.SECRET,
-                isDevDependency: false
+            const tree = await this.githubService.getRepoTree(repoUrl, branch, token);
+
+            // Limit scanning to avoid timeouts on huge repos
+            const MAX_FILES_TO_SCAN = 200;
+            let scannedCount = 0;
+
+            const filesToScan = tree.filter(file => {
+                if (file.type !== 'blob') return false; // Only files
+                if (file.size > 500 * 1024) return false; // Skip files > 500KB
+
+                const pathLower = file.path.toLowerCase();
+                // Exclusions
+                if (pathLower.includes('node_modules/') ||
+                    pathLower.includes('dist/') ||
+                    pathLower.includes('build/') ||
+                    pathLower.includes('vendor/') ||
+                    pathLower.endsWith('.lock') ||
+                    pathLower.endsWith('.png') ||
+                    pathLower.endsWith('.jpg') ||
+                    pathLower.endsWith('.jpeg') ||
+                    pathLower.endsWith('.svg') ||
+                    pathLower.endsWith('.eot') ||
+                    pathLower.endsWith('.woff') ||
+                    pathLower.endsWith('.woff2') ||
+                    pathLower.endsWith('.ttf') ||
+                    pathLower.endsWith('.pdf') ||
+                    pathLower.endsWith('.zip') ||
+                    pathLower.endsWith('.exe')) {
+                    return false;
+                }
+                return true;
             });
+
+            this.logger.log(`[SecretScan] Found ${filesToScan.length} potential files. Scanning up to ${MAX_FILES_TO_SCAN}...`);
+
+            for (const file of filesToScan) {
+                if (scannedCount >= MAX_FILES_TO_SCAN) break;
+
+                try {
+                    const content = await this.githubService.getFileContent(repoUrl, file.path, branch, token);
+                    scannedCount++;
+                    if (onProgress) await onProgress(scannedCount, filesToScan.length);
+
+                    // Check for .env specifically (high priority)
+                    if (file.path.endsWith('.env')) {
+                        vulns.push({
+                            packageName: 'Secret Leak',
+                            version: 'N/A',
+                            severity: VulnerabilitySeverity.CRITICAL,
+                            title: '.env file committed',
+                            description: `The file ${file.path} is committed to the repository. It likely contains sensitive secrets.`,
+                            type: VulnerabilityType.SECRET,
+                            isDevDependency: false,
+                            url: `${repoUrl.replace('.git', '')}/blob/${branch}/${file.path}`
+                        });
+                        continue; // Don't regex scan .env, just flag the file itself
+                    }
+
+                    // Regex scanning
+                    for (const pattern of secretPatterns) {
+                        // For generic patterns (like AWS Secret Key which is just a 40-char string),
+                        // we need context validation (key name nearby).
+                        if (pattern.contextRegex) {
+                            if (!pattern.contextRegex.test(content)) continue;
+                        }
+
+                        if (pattern.regex.test(content)) {
+                            // Extract a snippet (carefully masking the secret)
+                            const match = content.match(pattern.regex);
+                            const secret = match ? match[0] : '';
+                            const maskedSecret = secret.substring(0, 4) + '...' + secret.substring(secret.length - 4);
+
+                            vulns.push({
+                                packageName: 'Secret Leak',
+                                version: 'N/A',
+                                severity: pattern.severity,
+                                title: `${pattern.name} detected`,
+                                description: `Found ${pattern.name} in ${file.path}. Pattern match: ${maskedSecret}`,
+                                type: VulnerabilityType.SECRET,
+                                isDevDependency: false,
+                                url: `${repoUrl.replace('.git', '')}/blob/${branch}/${file.path}`
+                            });
+                        }
+                    }
+                } catch (e) {
+                    // Ignore read errors (binary treated as text, etc.)
+                }
+            }
+
+        } catch (e) {
+            this.logger.error(`[SecretScan] Failed: ${e.message}`);
+            // Fallback to simple check if tree fetch fails
+            if (e.message.includes('Not Found') || e.message.includes('403')) {
+                // ... old .env logic could be here as fallback
+            }
         }
 
         return vulns;

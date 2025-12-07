@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useScanStore } from '../stores/scan';
 import { useAuthStore } from '../stores/auth';
-import { ArrowLeft, Eye, EyeOff, Crown, Download, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-vue-next';
+import { ArrowLeft, Eye, EyeOff, Crown, Download, ArrowUp, ArrowDown, ArrowUpDown, Lock, Box } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
 import CardContent from '../components/ui/CardContent.vue';
@@ -324,6 +324,8 @@ import TableRow from '../components/ui/TableRow.vue';
                       <TableCell>
                           <div class="flex flex-col">
                               <span class="font-medium flex items-center gap-2">
+                                <Lock v-if="vuln.type === 'secret' || vuln.packageName === 'Secret Leak'" class="w-4 h-4 text-orange-500" />
+                                <Box v-else class="w-4 h-4 text-muted-foreground" />
                                 {{ vuln.packageName }}
                                 <span v-if="vuln.isDevDependency" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wide">
                                     DEV

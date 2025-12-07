@@ -87,6 +87,29 @@ export class GithubService {
         }
     }
 
+    async getRepoTree(repoUrl: string, branch: string, token: string): Promise<any[]> {
+        const { owner, repo } = this.parseRepoUrl(repoUrl);
+        const octokit = new Octokit({ auth: token });
+
+        try {
+            // First get the commit SHA
+            const sha = await this.getCommitSha(repoUrl, branch, token);
+
+            // Get the Tree (Recursive)
+            const { data } = await octokit.git.getTree({
+                owner,
+                repo,
+                tree_sha: sha,
+                recursive: '1',
+            });
+
+            return data.tree as any[];
+        } catch (error) {
+            this.logger.error(`Failed to get repo tree for ${owner}/${repo}: ${error.message}`);
+            throw error;
+        }
+    }
+
     /**
      * Fetch CVE identifiers from GitHub Security Advisory ID (GHSA)
      * Uses GitHub GraphQL API to get CVE information
