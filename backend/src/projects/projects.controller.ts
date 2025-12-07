@@ -120,8 +120,8 @@ export class ProjectsController {
     @Get(':id/audit')
     @UseGuards(AuthGuard('jwt'))
     async getAuditLogs(@Param('id') id: string, @Req() req) {
-        console.log(`Fetching audit logs for project ${id} by user ${req.user.id}`);
-        return this.projectsService.getAuditLogs(+id, req.user.id);
+        console.log(`Fetching audit logs for project ${id} by user ${req.user.userId}`);
+        return this.projectsService.getAuditLogs(+id, req.user.userId);
     }
 
     @Get(':id/benchmark')

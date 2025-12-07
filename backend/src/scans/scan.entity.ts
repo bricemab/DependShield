@@ -20,6 +20,9 @@ export class Scan {
     @Column()
     projectId: number;
 
+    @Column({ type: 'int', default: 1 })
+    number: number;
+
     @Column({
         type: 'enum',
         enum: ScanStatus,

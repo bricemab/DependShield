@@ -63,7 +63,7 @@ const startPolling = () => {
   pollInterval = setInterval(async () => {
     await scanStore.fetchScans(projectId.value, true, scanStore.pagination.page);
     checkPolling();
-  }, 5000);
+  }, 1000);
 };
 
 const stopPolling = () => {
@@ -584,6 +584,36 @@ onMounted(async () => {
 
       <!-- Tab Content: Overview -->
       <div v-show="activeTab === 'overview'" class="space-y-6">
+        
+        <!-- Running Scan Progress -->
+        <div v-if="scanStore.scans.find(s => s.status === 'running')" class="mb-6">
+          <Card class="border-blue-200 bg-blue-50/50 dark:bg-blue-900/10 dark:border-blue-900/50">
+            <CardContent class="p-6">
+              <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-medium text-blue-900 dark:text-blue-100 flex items-center gap-2">
+                  <span class="relative flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                  </span>
+                  Scan in progress...
+                </h3>
+                <span class="text-sm font-bold text-blue-700 dark:text-blue-300">
+                  {{ scanStore.scans.find(s => s.status === 'running')?.progress || 0 }}%
+                </span>
+              </div>
+              <div class="w-full bg-blue-200 dark:bg-blue-800 rounded-full h-2.5 overflow-hidden">
+                <div 
+                  class="bg-blue-600 h-2.5 rounded-full transition-all duration-500 ease-out" 
+                  :style="{ width: `${scanStore.scans.find(s => s.status === 'running')?.progress || 0}%` }"
+                ></div>
+              </div>
+              <p class="text-xs text-blue-600/80 dark:text-blue-400/80 mt-2">
+                Analyzing dependencies and checking for vulnerabilities. Please wait...
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
         <!-- Row 1: Key Metrics (4 cols) -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <!-- Total Scans -->
@@ -605,7 +635,7 @@ onMounted(async () => {
               <Shield class="w-4 h-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div class="text-2xl font-bold" :class="healthColor">{{ healthScore.toFixed(0) }}/100</div>
+              <div class="text-2xl font-bold" :class="healthColor">{{ Number(healthScore).toFixed(0) }}/100</div>
               <p class="text-xs text-muted-foreground">Target: > 80</p>
             </CardContent>
           </Card>
@@ -722,7 +752,7 @@ onMounted(async () => {
                         >
                             <div>
                                 <div class="font-medium text-sm flex items-center gap-2">
-                                    Scan #{{ scan.id }}
+                                    Scan #{{ scan.number || scan.id }}
                                     <ChevronRight class="w-3 h-3 text-muted-foreground" />
                                 </div>
                                 <div class="text-xs text-muted-foreground">{{ formatDate(scan.startedAt) }}</div>
@@ -772,7 +802,7 @@ onMounted(async () => {
                   </thead>
                   <tbody class="divide-y">
                     <tr v-for="scan in scanStore.scans" :key="scan.id" class="hover:bg-muted/50 transition-colors">
-                      <td class="px-4 py-3 text-sm font-mono">#{{ scan.id }}</td>
+                      <td class="px-4 py-3 text-sm font-mono">#{{ scan.number || scan.id }}</td>
                       <td class="px-4 py-3">
                         <div v-if="scan.status === 'running'" class="flex items-center gap-3">
                           <div class="w-32 bg-secondary rounded-full h-2">

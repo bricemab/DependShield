@@ -15,6 +15,7 @@ interface Scan {
     startedAt: string;
     completedAt?: string;
     progress: number; // 0-100
+    number?: number;
 }
 
 interface Vulnerability {

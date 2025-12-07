@@ -64,10 +64,18 @@ export class ScansService {
             }
         }
 
+        // Calculate sequential scan number
+        const lastScanNumber = await this.scansRepository.findOne({
+            where: { projectId },
+            order: { number: 'DESC' },
+        });
+        const nextNumber = (lastScanNumber?.number || 0) + 1;
+
         // Create scan record
         const scan = this.scansRepository.create({
             projectId,
             status: ScanStatus.PENDING,
+            number: nextNumber,
         });
         await this.scansRepository.save(scan);
         this.logger.log(`Scan record created: ${scan.id}`);

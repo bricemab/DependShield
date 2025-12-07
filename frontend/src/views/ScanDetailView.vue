@@ -9,6 +9,7 @@ import Card from '../components/ui/Card.vue';
 import CardContent from '../components/ui/CardContent.vue';
 import Dialog from '../components/ui/Dialog.vue';
 import DashboardLayout from '../layouts/DashboardLayout.vue';
+import EpssBadge from '../components/EpssBadge.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -40,7 +41,7 @@ const startPolling = () => {
         console.log('Scan completed or failed, stopping polling.');
         stopPolling();
     }
-  }, 5000);
+  }, 1000);
 };
 
 const stopPolling = () => {
@@ -170,7 +171,7 @@ import TableRow from '../components/ui/TableRow.vue';
             {{ $t('common.back') }}
           </button>
           <div class="flex items-center gap-3">
-             <h2 class="text-3xl font-bold tracking-tight">Scan #{{ scanId }}</h2>
+             <h2 class="text-3xl font-bold tracking-tight">Scan #{{ scanStore.currentScan?.number || scanId }}</h2>
              <span v-if="scanStore.currentScan?.status === 'running'" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">
                 Running
              </span>
@@ -179,7 +180,7 @@ import TableRow from '../components/ui/TableRow.vue';
              </span>
           </div>
           <p class="text-muted-foreground text-sm mt-1">
-             {{ lastUpdated.toLocaleDateString() }} {{ lastUpdated.toLocaleTimeString() }} • Score: <span class="font-semibold text-foreground">{{ scanStore.currentScan?.score?.toFixed(1) || 'N/A' }}</span>
+             {{ lastUpdated.toLocaleDateString() }} {{ lastUpdated.toLocaleTimeString() }} • Score: <span class="font-semibold text-foreground">{{ scanStore.currentScan?.score ? Number(scanStore.currentScan.score).toFixed(1) : 'N/A' }}</span>
           </p>
         </div>
 
@@ -268,6 +269,7 @@ import TableRow from '../components/ui/TableRow.vue';
               <TableHeader>
                   <TableRow>
                       <TableHead class="w-[100px]">Severity</TableHead>
+                      <TableHead class="w-[120px]">{{ $t('scan_detail.epss_risk') }}</TableHead>
                       <TableHead>Package</TableHead>
                       <TableHead>Vulnerability</TableHead>
                       <TableHead class="w-[100px]">Status</TableHead>
@@ -280,6 +282,14 @@ import TableRow from '../components/ui/TableRow.vue';
                           <span :class="['inline-flex items-center px-2 py-1 rounded-md text-xs font-medium border uppercase', getSeverityColor(vuln.severity)]">
                               {{ vuln.severity }}
                           </span>
+                      </TableCell>
+                      <TableCell>
+                           <EpssBadge 
+                               v-if="vuln.epssScore !== null && vuln.epssScore !== undefined" 
+                               :score="vuln.epssScore" 
+                               :percentile="vuln.epssPercentile || 0" 
+                           />
+                           <span v-else class="text-xs text-muted-foreground">N/A</span>
                       </TableCell>
                       <TableCell>
                           <div class="flex flex-col">
