@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ProjectsService } from '../projects/projects.service';
 import { ScansService } from '../scans/scans.service';
 import * as PDFDocument from 'pdfkit';
+import { SbomService } from '../scans/sbom.service';
 import { stringify } from 'csv-stringify/sync';
 
 @Injectable()
@@ -9,6 +10,7 @@ export class ReportsService {
     constructor(
         private projectsService: ProjectsService,
         private scansService: ScansService,
+        private sbomService: SbomService
     ) { }
 
     async generatePdf(projectId: number): Promise<Buffer> {
@@ -88,5 +90,12 @@ export class ReportsService {
         }));
 
         return stringify(data, { header: true });
+    }
+
+    async generateSbom(projectId: number): Promise<any> {
+        const lastScan = await this.scansService.findLastScan(projectId);
+        if (!lastScan) return {};
+        // Use dependency graph for fuller picture if available, otherwise vulnerabilities is just a subset
+        return this.sbomService.generateCycloneDX(lastScan);
     }
 }

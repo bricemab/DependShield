@@ -17,6 +17,8 @@ import { GithubService } from './github.service';
 import { UsersModule } from '../users/users.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { EpssModule } from '../epss/epss.module';
+import { LicenseService } from './license.service';
+import { SbomService } from './sbom.service';
 
 @Module({
     imports: [
@@ -33,7 +35,7 @@ import { EpssModule } from '../epss/epss.module';
         EpssModule,
     ],
     controllers: [ScansController, WhitelistController],
-    providers: [ScansService, ScanProcessor, WhitelistService, GithubService],
-    exports: [ScansService, WhitelistService, GithubService],
+    providers: [ScansService, ScanProcessor, WhitelistService, GithubService, LicenseService, SbomService],
+    exports: [ScansService, WhitelistService, GithubService, LicenseService, SbomService],
 })
 export class ScansModule { }

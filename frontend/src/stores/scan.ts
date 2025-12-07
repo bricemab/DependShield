@@ -33,7 +33,7 @@ interface Vulnerability {
     isDevDependency: boolean;
     epssScore?: number | null;
     epssPercentile?: number | null;
-    type?: 'dependency' | 'code' | 'secret' | 'infrastructure' | 'docker';
+    type?: 'dependency' | 'code' | 'secret' | 'infrastructure' | 'docker' | 'license';
 }
 
 export const useScanStore = defineStore('scan', () => {
@@ -165,7 +165,7 @@ export const useScanStore = defineStore('scan', () => {
         }
     }
 
-    async function downloadReport(projectId: number, format: 'pdf' | 'csv') {
+    async function downloadReport(projectId: number, format: 'pdf' | 'csv' | 'sbom') {
         const authStore = useAuthStore();
         try {
             const response = await axios.get(`${API_URL}/projects/${projectId}/reports/${format}`, {

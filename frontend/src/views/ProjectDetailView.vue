@@ -403,6 +403,18 @@ const handleDeleteWebhook = async (id: string) => {
     }
 };
 
+const handleTestWebhook = async (id: string) => {
+    try {
+        const token = localStorage.getItem('ds_token')?.replace(/^"|"$/g, '');
+        await axios.post(`http://localhost:3000/projects/${projectId.value}/webhooks/${id}/test`, {}, {
+             headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success('Test payload sent!');
+    } catch (e) {
+        toast.error('Failed to send test payload');
+    }
+};
+
 const switchTab = (tab: string) => {
     console.log('Switching tab to:', tab);
     activeTab.value = tab;
@@ -866,6 +878,7 @@ onMounted(async () => {
       </div>
       
       <!-- Tab Content: Webhooks -->
+      <!-- Tab Content: Webhooks -->
       <div v-show="activeTab === 'webhooks'" class="space-y-6">
         <div v-if="authStore.user?.plan !== 'PRO' && authStore.user?.plan !== 'ENTERPRISE'" class="flex flex-col items-center justify-center py-12 bg-muted/30 rounded-lg border border-dashed">
              <div class="bg-primary/10 p-4 rounded-full mb-4">
@@ -938,9 +951,14 @@ onMounted(async () => {
                                       <span class="text-xs text-muted-foreground">{{ hook.type }}</span>
                                   </div>
                              </div>
-                             <button @click="handleDeleteWebhook(hook.id)" class="text-red-500 p-2 hover:bg-red-50 rounded-md">
-                                 <Trash2 class="w-4 h-4" />
-                             </button>
+                             <div class="flex items-center gap-2">
+                                  <button @click="handleTestWebhook(hook.id)" class="text-blue-500 p-2 hover:bg-blue-50 rounded-md" title="Send Test Payload">
+                                      <Play class="w-4 h-4" />
+                                  </button>
+                                  <button @click="handleDeleteWebhook(hook.id)" class="text-red-500 p-2 hover:bg-red-50 rounded-md">
+                                      <Trash2 class="w-4 h-4" />
+                                  </button>
+                             </div>
                          </li>
                      </ul>
                  </CardContent>
@@ -950,7 +968,6 @@ onMounted(async () => {
 
       <!-- Tab Content: Whitelist (Ignored) -->
       <div v-show="activeTab === 'whitelist'">
-          <!-- ... (whitelist content) -->
           <Card>
               <CardHeader>
                   <CardTitle>Ignored Vulnerabilities</CardTitle>

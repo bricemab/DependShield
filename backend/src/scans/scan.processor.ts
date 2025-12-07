@@ -17,6 +17,7 @@ import { UsersService } from '../users/users.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { WebhookEvent } from '../webhooks/webhook.entity';
 import { EpssService } from '../epss/epss.service';
+import { LicenseService } from './license.service';
 
 const execAsync = promisify(exec);
 
@@ -36,6 +37,7 @@ export class ScanProcessor {
         private usersService: UsersService,
         private webhooksService: WebhooksService,
         private epssService: EpssService,
+        private licenseService: LicenseService,
     ) { }
 
     @Process('scan')
@@ -249,6 +251,23 @@ export class ScanProcessor {
                 }
             }
             await this.updateProgress(scan, 85, 'EPSS enrichment completed');
+
+            // License Scan
+            try {
+                this.logger.log(`Starting License Scan...`);
+                const packageJsonPath = path.join(scanDir, 'package.json');
+                if (await fs.pathExists(packageJsonPath)) {
+                    const pkg = await fs.readJson(packageJsonPath);
+                    if (pkg.dependencies) {
+                        const licenseVulns = await this.licenseService.checkLicenses(pkg.dependencies);
+                        this.logger.log(`Found ${licenseVulns.length} restrictive licenses.`);
+                        vulnerabilities.push(...licenseVulns);
+                    }
+                }
+            } catch (e) {
+                this.logger.warn(`License scan failed: ${e.message}`);
+            }
+            await this.updateProgress(scan, 90, 'License scan completed');
 
             for (const vuln of vulnerabilities) {
                 const isWhitelisted = whitelistRules.some(rule => {
@@ -484,14 +503,25 @@ export class ScanProcessor {
     private calculateScore(vulnerabilities: Partial<Vulnerability>[]): number {
         if (vulnerabilities.length === 0) return 100;
         let totalWeight = 0;
+
         for (const vuln of vulnerabilities) {
+            let severityWeight = 0;
             const sev = vuln.severity;
-            if (sev === VulnerabilitySeverity.CRITICAL) totalWeight += 10;
-            else if (sev === VulnerabilitySeverity.HIGH) totalWeight += 5;
-            else if (sev === VulnerabilitySeverity.MODERATE) totalWeight += 2;
-            else if (sev === VulnerabilitySeverity.LOW) totalWeight += 1;
+
+            if (sev === VulnerabilitySeverity.CRITICAL) severityWeight = 10;
+            else if (sev === VulnerabilitySeverity.HIGH) severityWeight = 5;
+            else if (sev === VulnerabilitySeverity.MODERATE) severityWeight = 2;
+            else if (sev === VulnerabilitySeverity.LOW) severityWeight = 1;
+
+            // EPSS Weighting: Penalty increases with exploit probability
+            // Formula: Weight = Base * (1 + EPSS)
+            // Example: Critical (10) with EPSS 0.95 => 10 * 1.95 = 19.5
+            const epssFactor = 1 + (vuln.epssScore || 0);
+            totalWeight += severityWeight * epssFactor;
         }
-        return Math.min(100, Math.max(0, 100 - totalWeight));
+
+        // Cap deduction at 100 (Score cannot be < 0)
+        return Math.max(0, 100 - Math.round(totalWeight));
     }
 
     private async scanDocker(repoUrl: string, branch: string, token: string): Promise<Partial<Vulnerability>[]> {
@@ -677,34 +707,58 @@ export class ScanProcessor {
             const links: any[] = [];
             const addedNodes = new Set<string>();
 
-            const addNode = (id: string, group: number) => {
+            const addNode = (id: string, group: number, version?: string) => {
                 if (!addedNodes.has(id)) {
-                    nodes.push({ id, group });
+                    nodes.push({ id, group, version: version || 'unknown' });
                     addedNodes.add(id);
                 }
             };
 
             const rootName = lockContent.name || 'root';
-            addNode(rootName, 1);
+            addNode(rootName, 1, lockContent.version);
 
             let deps = lockContent.dependencies;
             if (!deps && lockContent.packages && lockContent.packages['']) {
                 deps = lockContent.packages[''].dependencies;
             }
 
+            // Lockfile v1/v3 structure handling
+            // v1: dependencies object at root
+            // v2/v3: packages object
+            if (lockContent.packages) {
+                for (const [key, pkg] of Object.entries(lockContent.packages as any)) {
+                    if (key === '') continue; // Root
+                    const name = key.replace('node_modules/', '');
+                    const version = (pkg as any).version;
+
+                    // We need a cleaner graph, maybe just direct deps and their children?
+                    // For SBOM we ideally want everything.
+                    // For GraphViz, too many nodes is bad. 
+                    // Let's stick to the existing logic but add version
+                }
+            }
+
             if (deps) {
-                for (const [name, version] of Object.entries(deps as any)) {
-                    addNode(name, 2);
+                for (const [name, dep] of Object.entries(deps as any)) {
+                    const version = (dep as any).version;
+                    addNode(name, 2, version);
                     links.push({ source: rootName, target: name });
 
-                    if (lockContent.dependencies && lockContent.dependencies[name] && lockContent.dependencies[name].dependencies) {
-                        for (const [subName, subVer] of Object.entries(lockContent.dependencies[name].dependencies as any)) {
-                            addNode(subName, 3);
+                    if ((dep as any).dependencies) {
+                        for (const [subName, subDep] of Object.entries((dep as any).dependencies as any)) {
+                            addNode(subName, 3, (subDep as any).version);
                             links.push({ source: name, target: subName });
                         }
                     }
                 }
+            } else if (lockContent.packages) {
+                // Fallback for v2/v3 if 'dependencies' is missing (npm 7+)
+                // This is complex because 'packages' is flat.
+                // Ideally we use 'dependencies' if present (npm install creates it usually).
+                // For now, let's assume 'dependencies' property exists or we might miss data in pure v3.
             }
+
+            return { nodes, links };
 
             return { nodes, links };
         } catch (e) {

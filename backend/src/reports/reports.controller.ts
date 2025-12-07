@@ -31,4 +31,15 @@ export class ReportsController {
 
         res.send(csv);
     }
+    @Get('sbom')
+    async downloadSbom(@Param('projectId') projectId: number, @Res() res: Response) {
+        const sbom = await this.reportsService.generateSbom(projectId);
+
+        res.set({
+            'Content-Type': 'application/vnd.cyclonedx+json',
+            'Content-Disposition': `attachment; filename=sbom-${projectId}.json`,
+        });
+
+        res.send(JSON.stringify(sbom, null, 2));
+    }
 }

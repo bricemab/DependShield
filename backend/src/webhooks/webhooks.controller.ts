@@ -22,4 +22,9 @@ export class WebhooksController {
     remove(@Param('id') id: string, @Request() req) {
         return this.webhooksService.delete(id, req.user.userId);
     }
+
+    @Post(':id/test')
+    test(@Param('id') id: string, @Request() req) {
+        return this.webhooksService.testWebhook(id, req.user.userId);
+    }
 }

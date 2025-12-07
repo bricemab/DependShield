@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { useScanStore } from '../stores/scan';
 import { useAuthStore } from '../stores/auth';
-import { Eye, EyeOff, Crown, Download, ArrowUp, ArrowDown, ArrowUpDown, Lock, Box, Wand2, ChevronRight, LayoutDashboard, FolderOpen, Activity } from 'lucide-vue-next';
+import { Eye, EyeOff, Crown, Download, ArrowUp, ArrowDown, ArrowUpDown, Lock, Box, Wand2, ChevronRight, LayoutDashboard, FolderOpen, Activity, Scale, Code2 } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
 import CardContent from '../components/ui/CardContent.vue';
@@ -94,15 +94,35 @@ const filteredVulnerabilities = computed(() => {
   return vulns.sort((a, b) => {
     let comparison = 0;
     
-    if (sortBy.value === 'severity') {
-        const severityOrder: Record<string, number> = { 'critical': 4, 'high': 3, 'moderate': 2, 'low': 1 };
-        const orderA = severityOrder[a.severity?.toLowerCase()] || 0;
-        const orderB = severityOrder[b.severity?.toLowerCase()] || 0;
+    // Primary Sort: Severity (Always)
+    const severityOrder: Record<string, number> = { 'critical': 4, 'high': 3, 'moderate': 2, 'low': 1 };
+    const orderA = severityOrder[a.severity?.toLowerCase()] || 0;
+    const orderB = severityOrder[b.severity?.toLowerCase()] || 0;
+    
+    if (orderA !== orderB) {
+        // If sorting by severity, use severity order
+        // If sorting by epss, we still respect severity groups loosely or strictly?
+        // Requirement: "Smart Sort" = High risk first. 
+        // Let's make Severity the primary sort key always for now, unless 'epss' is explicitly chosen
         comparison = orderA - orderB;
-    } else if (sortBy.value === 'epss') {
+    }
+
+    if (sortBy.value === 'epss') {
+        // Explicit EPSS sort overrides severity grouping if different
         const scoreA = a.epssScore ?? -1;
         const scoreB = b.epssScore ?? -1;
         comparison = scoreA - scoreB;
+    } else {
+        // Sort by Severity (default)
+        if (orderA !== orderB) {
+            comparison = orderA - orderB;
+        } else {
+            // Secondary Sort: EPSS (Tie-breaker within same severity)
+            // Higher EPSS = Higher Risk = Comes first (for desc sort)
+            const scoreA = a.epssScore ?? 0;
+            const scoreB = b.epssScore ?? 0;
+            comparison = scoreA - scoreB;
+        }
     }
     
     return sortOrder.value === 'asc' ? comparison : -comparison;
@@ -187,7 +207,7 @@ const handleUnignore = async (vuln: any) => {
   }
 };
 
-const handleExport = async (format: 'pdf' | 'csv') => {
+const handleExport = async (format: 'pdf' | 'csv' | 'sbom') => {
     try {
         await scanStore.downloadReport(scanStore.currentScan!.projectId, format);
         toast.success(`Report exported as ${format.toUpperCase()}`);
@@ -260,6 +280,13 @@ import TableRow from '../components/ui/TableRow.vue';
             >
                 <Download class="w-4 h-4" />
                 Export CSV
+            </button>
+            <button 
+                @click="handleExport('sbom')" 
+                class="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-background border border-input shadow-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+            >
+                <Code2 class="w-4 h-4" />
+                Export SBOM
             </button>
         </div>
       </div>
@@ -393,6 +420,7 @@ import TableRow from '../components/ui/TableRow.vue';
                           <div class="flex flex-col">
                               <span class="font-medium flex items-center gap-2">
                                 <Lock v-if="vuln.type === 'secret' || vuln.packageName === 'Secret Leak'" class="w-4 h-4 text-orange-500" />
+                                <Scale v-else-if="vuln.type === 'license'" class="w-4 h-4 text-purple-500" />
                                 <Box v-else class="w-4 h-4 text-muted-foreground" />
                                 {{ vuln.packageName }}
                                 <span v-if="vuln.isDevDependency" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800 border border-purple-200 uppercase tracking-wide">

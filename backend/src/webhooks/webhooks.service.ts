@@ -62,7 +62,7 @@ export class WebhooksService {
         for (const webhook of webhooks) {
             if (webhook.events.includes(event)) {
                 try {
-                    await this.sendPayload(webhook, scan, event);
+                    await this.sendPayload(webhook, scan, event, false);
                 } catch (e) {
                     console.error(`Failed to trigger webhook ${webhook.id}: ${e.message}`);
                 }
@@ -70,23 +70,52 @@ export class WebhooksService {
         }
     }
 
-    private async sendPayload(webhook: Webhook, scan: Scan, event: WebhookEvent) {
+    async testWebhook(id: string, userId: number): Promise<void> {
+        const webhook = await this.webhooksRepository.findOne({
+            where: { id },
+            relations: ['project']
+        });
+        if (!webhook) throw new NotFoundException('Webhook not found');
+
+        const project = await this.projectsService.findOne(webhook.projectId, userId);
+        if (!project) throw new ForbiddenException('You do not have access to this webhook');
+
+        // Mock Scan for testing
+        const mockScan = {
+            id: 12345,
+            score: 100,
+            vulnerabilitiesCount: 0,
+            status: 'completed',
+            project: { name: project.name },
+            projectId: project.id
+        } as any;
+
+        try {
+            await this.sendPayload(webhook, mockScan, WebhookEvent.SCAN_COMPLETED, true);
+        } catch (e: any) {
+            throw new Error(`Failed to send test payload: ${e.message}`);
+        }
+    }
+
+    private async sendPayload(webhook: Webhook, scan: Scan, event: WebhookEvent, isTest: boolean = false) {
         let payload: any;
         const scanUrl = `http://localhost:5173/scans/${scan.id}`; // TODO: Env var
+        const prefix = isTest ? '[TEST] ' : '';
+        const mdPrefix = isTest ? '[TEST] ' : ''; // Markdown prefix
 
         if (webhook.type === WebhookType.SLACK) {
             payload = {
                 text: event === WebhookEvent.SCAN_FAILED
-                    ? `🚨 Scan failed for ${scan.project.name}: ${scan.errorMessage}`
-                    : `🛡️ Scan completed for ${scan.project.name}. Score: ${scan.score}. Found ${scan.vulnerabilitiesCount} vulnerabilities.`,
+                    ? `🚨 ${prefix}Scan failed for ${scan.project.name}: ${scan.errorMessage}`
+                    : `🛡️ ${prefix}Scan completed for ${scan.project.name}. Score: ${scan.score}. Found ${scan.vulnerabilitiesCount} vulnerabilities.`,
                 blocks: [
                     {
                         type: "section",
                         text: {
                             type: "mrkdwn",
                             text: event === WebhookEvent.SCAN_FAILED
-                                ? `*🚨 Scan Failed for ${scan.project.name}*\nreason: ${scan.errorMessage}`
-                                : `*🛡️ Scan Completed for ${scan.project.name}*\nScore: *${scan.score}* | Vulnerabilities: *${scan.vulnerabilitiesCount}*\n<${scanUrl}|View Report>`
+                                ? `*🚨 ${mdPrefix}Scan Failed for ${scan.project.name}*\nreason: ${scan.errorMessage}`
+                                : `*🛡️ ${mdPrefix}Scan Completed for ${scan.project.name}*\nScore: *${scan.score}* | Vulnerabilities: *${scan.vulnerabilitiesCount}*\n<${scanUrl}|View Report>`
                         }
                     }
                 ]
@@ -94,20 +123,22 @@ export class WebhooksService {
         } else if (webhook.type === WebhookType.DISCORD) {
             payload = {
                 content: event === WebhookEvent.SCAN_FAILED
-                    ? `🚨 **Scan Failed** for ${scan.project.name}\nReason: ${scan.errorMessage}`
-                    : `🛡️ **Scan Completed** for ${scan.project.name}\nScore: **${scan.score}**\nVulnerabilities: **${scan.vulnerabilitiesCount}**\n[View Report](${scanUrl})`
+                    ? `🚨 **${mdPrefix}Scan Failed** for ${scan.project.name}\nReason: ${scan.errorMessage}`
+                    : `🛡️ **${mdPrefix}Scan Completed** for ${scan.project.name}\nScore: **${scan.score}**\nVulnerabilities: **${scan.vulnerabilitiesCount}**\n[View Report](${scanUrl})`
             };
         } else {
             // Generic
             payload = {
-                event,
+                event: isTest ? 'test.ping' : event,
                 projectId: scan.projectId,
-                scanId: scan.id,
-                score: scan.score,
-                vulnerabilitiesCount: scan.vulnerabilitiesCount,
-                status: scan.status,
-                url: scanUrl,
-                timestamp: new Date().toISOString()
+                projectName: scan.project.name,
+                timestamp: new Date().toISOString(),
+                message: isTest ? "This is a test event from DependShield." : undefined,
+                scanId: !isTest ? scan.id : undefined,
+                score: !isTest ? scan.score : undefined,
+                vulnerabilitiesCount: !isTest ? scan.vulnerabilitiesCount : undefined,
+                status: !isTest ? scan.status : undefined,
+                url: !isTest ? scanUrl : undefined
             };
         }
 
