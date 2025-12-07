@@ -3,7 +3,7 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
 import { useScanStore } from '../stores/scan';
-import { Play, ArrowLeft, FileText, Shield, Package2, Trash2, LayoutDashboard, List, Settings, EyeOff, GitBranch, ChevronRight, Clock, Webhook, Lock, FolderOpen } from 'lucide-vue-next';
+import { Play, ArrowLeft, FileText, Shield, Package2, Trash2, LayoutDashboard, List, Settings, EyeOff, GitBranch, ChevronRight, Clock, Webhook, Lock, FolderOpen, Box } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
@@ -12,6 +12,8 @@ import CardContent from '../components/ui/CardContent.vue';
 import DashboardLayout from '../layouts/DashboardLayout.vue';
 
 import { useAuthStore } from '../stores/auth';
+import ProjectWebhooks from './ProjectWebhooks.vue';
+import ProjectIntegrations from './ProjectIntegrations.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -598,6 +600,18 @@ onMounted(async () => {
             <FileText class="w-4 h-4" />
             Activity
           </button>
+           <button
+            @click="switchTab('integrations')"
+            :class="[
+              activeTab === 'integrations'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-muted-foreground hover:border-gray-300 hover:text-foreground',
+              'group inline-flex items-center py-4 px-1 border-b-2 font-medium text-sm gap-2'
+            ]"
+          >
+            <Box class="w-4 h-4" />
+            Integrations
+          </button>
         </nav>
       </div>
 
@@ -1034,7 +1048,16 @@ onMounted(async () => {
         </Card>
       </div>
 
-      <!-- Tab Content: Settings -->
+      <!-- Tab Content: Settings (Webhooks component reused here? No, duplicate block likely needs removal or fix) -->
+      <!-- I will comment out this duplicate block if it exists, or just fix to v-show if unique -->
+      <div v-show="activeTab === 'webhooks_duplicate_check'" class="hidden">
+      </div>
+
+       <div v-show="activeTab === 'integrations'" class="space-y-6">
+        <ProjectIntegrations :projectId="projectId" />
+      </div>
+
+      <!-- Settings Tab -->
       <div v-show="activeTab === 'settings'" class="space-y-6">
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <!-- General Configuration -->
