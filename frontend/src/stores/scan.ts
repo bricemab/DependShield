@@ -5,7 +5,7 @@ import { useAuthStore } from './auth';
 
 const API_URL = 'http://localhost:3000';
 
-interface Scan {
+export interface Scan {
     id: number;
     projectId: number;
     number: number;
@@ -20,7 +20,7 @@ interface Scan {
     estimatedWaitTime?: number;
 }
 
-interface Vulnerability {
+export interface Vulnerability {
     id: number;
     packageName: string;
     version: string;

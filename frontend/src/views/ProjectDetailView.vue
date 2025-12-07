@@ -3,12 +3,13 @@ import { onMounted, onUnmounted, computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
 import { useScanStore } from '../stores/scan';
-import { Play, ArrowLeft, FileText, Shield, Package2, Trash2, LayoutDashboard, List, Settings, EyeOff, GitBranch, ChevronRight, Clock, Webhook, Lock, FolderOpen, Box } from 'lucide-vue-next';
+import { Play, FileText, Shield, Package2, Trash2, LayoutDashboard, List, Settings, EyeOff, ChevronRight, Clock, Webhook, Lock, FolderOpen, Box } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
 import Card from '../components/ui/Card.vue';
 import CardHeader from '../components/ui/CardHeader.vue';
 import CardTitle from '../components/ui/CardTitle.vue';
 import CardContent from '../components/ui/CardContent.vue';
+import Dialog from '../components/ui/Dialog.vue'; // Added
 import DashboardLayout from '../layouts/DashboardLayout.vue';
 
 import { useAuthStore } from '../stores/auth';
@@ -115,7 +116,7 @@ const latestScanId = computed(() => {
     const completedScan = scanStore.scans.find(s => s.status === 'completed');
     if (completedScan) return completedScan.id;
     
-    if (scanStore.scans.length > 0) return scanStore.scans[0].id;
+    if (scanStore.scans.length > 0) return scanStore.scans[0]?.id;
     return null;
 });
 
@@ -212,21 +213,7 @@ const topOffenders = computed(() => {
 // const trendData = ...
 
 // 4. Benchmark
-const benchmarkComparison = computed(() => {
-    if (!project.value || projectStore.projects.length <= 1) return null;
-    
-    const totalScore = projectStore.projects.reduce((acc, p) => {
-        // We might not have scores for all projects unless we fetched them deep.
-        // Assuming project list might eventually have a 'lastScanScore' prop, but currently it doesn't.
-        // We can only benchmark against what we know using scanStore if we fetched scans for all? No too heavy.
-        // BACKUP: Just comparing against text assumption or if project objects had score.
-        // Since we don't have scores on the project listing, skip precise calculation for now
-        // and return a placeholder or skip.
-        return acc; 
-    }, 0);
-    
-    return null; // TODO: Implement when Project Entity has lastScore
-});
+
 
 
 // --- Configuration ---
@@ -278,30 +265,23 @@ const initSettingsForm = () => {
 const deleteConfirmation = ref('');
 const isDeleting = ref(false);
 
-const handleDeleteProject = async () => {
-    if (deleteConfirmation.value !== project.value?.name) return;
-    
-    if (!confirm('This action cannot be undone. Are you absolutely sure?')) return;
+const showUnignoreModal = ref(false);
+const ruleToUnignore = ref<any>(null);
 
-    isDeleting.value = true;
-    try {
-        await projectStore.deleteProject(projectId.value);
-        toast.success('Project deleted');
-        router.push('/projects');
-    } catch (e) {
-        toast.error('Failed to delete project');
-        isDeleting.value = false;
-    }
+const confirmUnignore = (rule: any) => {
+    ruleToUnignore.value = rule;
+    showUnignoreModal.value = true;
 };
 
-const handleDeleteRule = async (ruleId: number) => {
-    if (confirm('Are you sure you want to stop ignoring this vulnerability?')) {
-        try {
-            await projectStore.deleteWhitelistRule(projectId.value, ruleId);
-            toast.success('Rule removed');
-        } catch (e) {
-            toast.error('Failed to remove rule');
-        }
+const handleUnignoreRule = async () => {
+    if (!ruleToUnignore.value) return;
+    try {
+        await projectStore.deleteWhitelistRule(projectId.value, ruleToUnignore.value.id);
+        toast.success('Rule removed', { description: 'Vulnerability will appear in next scan.' });
+        showUnignoreModal.value = false;
+        ruleToUnignore.value = null;
+    } catch (e) {
+        toast.error('Failed to remove rule');
     }
 };
 
@@ -348,7 +328,7 @@ const formatAuditAction = (action: string) => {
 
 // --- Webhooks ---
 const webhooks = ref<any[]>([]);
-const isWebhooksLoading = ref(false);
+// removed isWebhooksLoading
 const newWebhook = ref({
     url: '',
     type: 'SLACK',
@@ -455,10 +435,23 @@ watch(projectId, async (newId) => {
 
 watch(latestScanId, async (newId) => {
     if (newId) {
-        // Force refresh details for this scan
-        // This ensures scanStore.currentScan is effectively set to the latest completed scan,
-        // and scanStore.vulnerabilities are populated for it.
         await scanStore.fetchScanDetails(projectId.value, newId, true);
+    }
+});
+
+// Watch for status changes of the active scan (e.g. running -> completed)
+const latestScanStatus = computed(() => {
+    const scan = scanStore.scans.find(s => s.id === latestScanId.value);
+    return scan?.status;
+});
+
+watch(latestScanStatus, async (newStatus, oldStatus) => {
+    if (newStatus === 'completed' && oldStatus !== 'completed' && latestScanId.value) {
+        // Scan just finished, fetch full details to update charts
+        await scanStore.fetchScanDetails(projectId.value, latestScanId.value, true);
+        toast.success('Scan completed', { description: 'Dashboard updated with new results.' });
+        // Also refresh project list/rules if needed
+        projectStore.fetchProjects(); 
     }
 });
 
@@ -1019,7 +1012,7 @@ onMounted(async () => {
                                   <td class="px-4 py-3 text-sm text-muted-foreground italic">{{ rule.reason || 'No reason provided' }}</td>
                                   <td class="px-4 py-3 text-sm">{{ formatDate(rule.createdAt) }}</td>
                                   <td class="px-4 py-3 text-right">
-                                      <button @click="handleDeleteRule(rule.id)" class="text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors" title="Remove from whitelist">
+                                      <button @click="confirmUnignore(rule)" class="text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors" title="Remove from whitelist">
                                           <Trash2 class="w-4 h-4" />
                                       </button>
                                   </td>
@@ -1207,35 +1200,49 @@ onMounted(async () => {
                 </Card>
             </div>
         </div>
-
-        <!-- Danger Zone -->
-        <Card class="border-red-200 bg-red-50/10">
-            <CardHeader>
-                <CardTitle class="text-red-600">Danger Zone</CardTitle>
-            </CardHeader>
-            <CardContent>
-                 <div class="space-y-4 max-w-md">
-                     <div class="text-sm text-muted-foreground">
-                         To delete this project, type <strong>{{ project?.name }}</strong> below. This action is irreversible.
-                     </div>
-                     <input 
-                         v-model="deleteConfirmation"
-                         type="text" 
-                         class="w-full px-3 py-2 bg-background border border-red-200 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500/50"
-                         :placeholder="project?.name"
-                     />
-                     <button
-                        @click="handleDeleteProject"
-                        :disabled="deleteConfirmation !== project?.name || isDeleting"
-                        class="w-full inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors bg-red-600 text-white hover:bg-red-700 h-10 px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                     >
-                        <Trash2 class="w-4 h-4 mr-2" />
-                        {{ isDeleting ? 'Deleting...' : 'Delete Project' }}
-                     </button>
-                 </div>
-            </CardContent>
-        </Card>
       </div>
     </div>
+
+
+    <!-- Unignore Confirmation Modal -->
+    <Dialog
+      :show="showUnignoreModal"
+      title="Stop Ignoring Vulnerability?"
+      description="This vulnerability will reappear in future scans and affect your security score."
+      @close="showUnignoreModal = false"
+    >
+        <div class="py-4 space-y-4">
+             <div class="p-3 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-100 dark:border-yellow-900/50 rounded-md text-sm text-yellow-600 dark:text-yellow-400">
+                <p class="font-medium flex items-center gap-2">
+                    <Shield class="w-4 h-4" />
+                    Security Impact
+                </p>
+                <p class="mt-1 opacity-90">Restoring this vulnerability may decrease your project's health score.</p>
+            </div>
+            
+            <div class="space-y-1">
+                 <label class="text-sm font-medium">Target Package</label>
+                 <div class="p-3 rounded-md bg-secondary/50 border text-sm font-mono text-muted-foreground">
+                     {{ ruleToUnignore?.packageName }}
+                 </div>
+            </div>
+        </div>
+
+        <template #footer>
+            <button
+                @click="showUnignoreModal = false"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10 px-4 py-2 hover:bg-secondary text-secondary-foreground"
+            >
+                Cancel
+            </button>
+            <button
+                @click="handleUnignoreRule"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
+            >
+                <Eye class="w-4 h-4" />
+                Stop Ignoring
+            </button>
+        </template>
+    </Dialog>
   </DashboardLayout>
 </template>

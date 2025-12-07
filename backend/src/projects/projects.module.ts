@@ -7,6 +7,7 @@ import { UsersModule } from '../users/users.module';
 import { ProvidersModule } from '../providers/providers.module';
 import { SchedulerModule } from '../scheduler/scheduler.module';
 import { AuditModule } from '../audit/audit.module';
+import { ScansModule } from '../scans/scans.module';
 
 @Module({
   imports: [
@@ -15,9 +16,10 @@ import { AuditModule } from '../audit/audit.module';
     ProvidersModule,
     forwardRef(() => SchedulerModule),
     AuditModule,
+    forwardRef(() => ScansModule),
   ],
   controllers: [ProjectsController],
   providers: [ProjectsService],
   exports: [ProjectsService],
 })
-export class ProjectsModule {}
+export class ProjectsModule { }

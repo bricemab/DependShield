@@ -8,10 +8,10 @@ export class AuditService {
   constructor(
     @InjectRepository(AuditLog)
     private auditRepository: Repository<AuditLog>,
-  ) {}
+  ) { }
 
   async log(
-    projectId: number,
+    projectId: number | null,
     userId: number | null,
     action: string,
     details?: any,

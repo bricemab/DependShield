@@ -313,7 +313,7 @@ export class ScanProcessor {
           // Continue without EPSS scores - graceful degradation
         }
       }
-      await this.updateProgress(scan, 85, 'EPSS enrichment completed');
+      await this.updateProgress(scan, 91, 'EPSS enrichment completed');
 
       // License Scan
       try {
@@ -880,6 +880,9 @@ export class ScanProcessor {
               // Extract a snippet (carefully masking the secret)
               const match = content.match(pattern.regex);
               const secret = match ? match[0] : '';
+              const index = match ? match.index : 0;
+              const lineNumber = content.substring(0, index!).split('\n').length;
+
               const maskedSecret =
                 secret.substring(0, 4) +
                 '...' +
@@ -890,10 +893,10 @@ export class ScanProcessor {
                 version: 'N/A',
                 severity: pattern.severity,
                 title: `${pattern.name} detected`,
-                description: `Found ${pattern.name} in ${file.path}. Pattern match: ${maskedSecret}`,
+                description: `Found ${pattern.name} in ${file.path} at line ${lineNumber}. Pattern match: ${maskedSecret}`,
                 type: VulnerabilityType.SECRET,
                 isDevDependency: false,
-                url: `${repoUrl.replace('.git', '')}/blob/${branch}/${file.path}`,
+                url: `${repoUrl.replace('.git', '')}/blob/${branch}/${file.path}#L${lineNumber}`,
               });
             }
           }

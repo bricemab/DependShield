@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Inject,
   BadRequestException,
+  forwardRef,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -15,6 +16,7 @@ import { UserPlan } from '../users/user.entity';
 import { GithubProvider } from '../providers/github/github.provider';
 import { GitProvider } from '../providers/interfaces/git-provider.interface';
 import { AuditService } from '../audit/audit.service';
+import { ScansService } from '../scans/scans.service';
 
 @Injectable()
 export class ProjectsService {
@@ -25,12 +27,25 @@ export class ProjectsService {
     @Inject(GithubProvider)
     private gitProvider: GitProvider,
     private auditService: AuditService,
-  ) {}
+    @Inject(forwardRef(() => ScansService))
+    private scansService: ScansService,
+  ) { }
 
   // ... existing findAll ...
 
-  async findAll(userId: number): Promise<Project[]> {
-    return this.projectsRepository.find({ where: { userId } });
+  async findAll(userId: number): Promise<any[]> {
+    const projects = await this.projectsRepository.find({ where: { userId } });
+
+    // Enrich with last scan info
+    const projectsWithScans = await Promise.all(projects.map(async (project) => {
+      try {
+        const lastScan = await this.scansService.findLastScan(project.id);
+        return { ...project, lastScan };
+      } catch (e) {
+        return { ...project, lastScan: null };
+      }
+    }));
+    return projectsWithScans;
   }
 
   async findOne(id: number, userId: number): Promise<Project> {
@@ -201,7 +216,7 @@ export class ProjectsService {
     await this.projectsRepository.remove(project); // this removes the ID from project object if typeorm does that? Usually yes.
     // If we want to log it, we should log BEFORE or keep the ID.
     // AuditLog has nullable Project relation, so we can log with just projectId even if row is gone.
-    await this.auditService.log(id, userId, 'PROJECT_DELETED', {
+    await this.auditService.log(null, userId, 'PROJECT_DELETED', {
       name: project.name,
     });
   }

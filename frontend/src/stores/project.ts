@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import api from '../lib/axios';
-import { useAuthStore } from './auth';
+import type { Scan } from './scan';
 
 const API_URL = 'http://localhost:3000';
 
@@ -15,6 +15,11 @@ interface Project {
     cronSchedule?: string;
     emailEnabled: boolean;
     immediateScansEnabled: boolean;
+    qualityGate?: {
+        minScore: number;
+        failOnSeverity: string;
+    };
+    lastScan?: Scan; // Enriched property from backend
     createdAt: string;
     updatedAt: string;
 }
@@ -33,7 +38,7 @@ interface Branch {
 }
 
 export const useProjectStore = defineStore('project', () => {
-    const authStore = useAuthStore();
+    // authStore was unused
     const projects = ref<Project[]>([]);
     const repositories = ref<Repository[]>([]);
     const branches = ref<Branch[]>([]);

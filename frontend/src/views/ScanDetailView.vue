@@ -201,10 +201,23 @@ const handleConfirmIgnore = async () => {
     }
 };
 
-const handleUnignore = async (vuln: any) => {
-  if (confirm('Are you sure you want to stop ignoring this vulnerability?')) {
-    await scanStore.unignoreVulnerability(scanStore.currentScan!.projectId, vuln);
-  }
+const showUnignoreModal = ref(false);
+const vulnToUnignore = ref<any>(null);
+
+const handleUnignore = (vuln: any) => {
+    vulnToUnignore.value = vuln;
+    showUnignoreModal.value = true;
+};
+
+const confirmUnignore = async () => {
+    if (!vulnToUnignore.value) return;
+    try {
+        await scanStore.unignoreVulnerability(scanStore.currentScan!.projectId, vulnToUnignore.value);
+        showUnignoreModal.value = false;
+        vulnToUnignore.value = null;
+    } catch (e) {
+        // toast handled in store
+    }
 };
 
 const handleExport = async (format: 'pdf' | 'csv' | 'sbom') => {
@@ -510,8 +523,16 @@ import TableRow from '../components/ui/TableRow.vue';
       @close="showIgnoreModal = false"
     >
       <div class="space-y-4 py-2">
+         <div class="p-3 bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/50 rounded-md text-sm text-blue-600 dark:text-blue-400">
+            <p class="font-medium flex items-center gap-2">
+                <EyeOff class="w-4 h-4" />
+                Visibility Change
+            </p>
+            <p class="mt-1 opacity-90">This vulnerability will be hidden from reports and score calculations.</p>
+        </div>
+
         <div class="space-y-2">
-          <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+          <label class="text-sm font-medium leading-none">
             Package
           </label>
           <div class="p-3 rounded-md bg-secondary text-sm font-mono">
@@ -520,7 +541,7 @@ import TableRow from '../components/ui/TableRow.vue';
         </div>
 
          <div class="space-y-2">
-          <label for="reason" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+          <label for="reason" class="text-sm font-medium leading-none">
             Reason (Optional)
           </label>
           <textarea
@@ -592,6 +613,46 @@ import TableRow from '../components/ui/TableRow.vue';
           Create Pull Request
         </button>
       </template>
+    </Dialog>
+
+    <Dialog
+      :show="showUnignoreModal"
+      title="Stop Ignoring Vulnerability?"
+      description="This vulnerability will reappear in future scans."
+      @close="showUnignoreModal = false"
+    >
+        <div class="py-4 space-y-4">
+             <div class="p-3 bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-100 dark:border-yellow-900/50 rounded-md text-sm text-yellow-600 dark:text-yellow-400">
+                <p class="font-medium flex items-center gap-2">
+                    <Activity class="w-4 h-4" />
+                    Action Required
+                </p>
+                <p class="mt-1 opacity-90">Restoring this vulnerability means you should fix it or review it again.</p>
+            </div>
+            
+            <div class="space-y-1">
+                 <label class="text-sm font-medium">Target Package</label>
+                 <div class="p-3 rounded-md bg-secondary/50 border text-sm font-mono text-muted-foreground">
+                     {{ vulnToUnignore?.packageName }}
+                 </div>
+            </div>
+        </div>
+
+        <template #footer>
+            <button
+                @click="showUnignoreModal = false"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10 px-4 py-2 hover:bg-secondary text-secondary-foreground"
+            >
+                Cancel
+            </button>
+            <button
+                @click="confirmUnignore"
+                class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring h-10 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
+            >
+                <Eye class="w-4 h-4" />
+                Stop Ignoring
+            </button>
+        </template>
     </Dialog>
     </div>
   </DashboardLayout>
