@@ -89,7 +89,7 @@ export class ScanProcessor {
                     commitSha,
                     'pending',
                     'Scan in progress...',
-                    `http://localhost:5173/scans/${scan.id}`, // TODO: Use real env config
+                    `http://localhost:5173/projects/${scan.project.id}/scans/${scan.id}`, // TODO: Use real env config
                     user.accessToken
                 );
             } catch (statusError) {
@@ -136,6 +136,27 @@ export class ScanProcessor {
                 this.logger.warn(`Could not fetch package.json, continuing without it: ${e.message}`);
             }
 
+
+            // Run Secret Scan (moved early for better progress UX)
+            const secretVulns = await this.scanSecrets(
+                scan.project.repositoryUrl,
+                scan.project.branch,
+                user.accessToken,
+                async (processed, total) => {
+                    // Map progress to 20-70% range
+                    const percent = 20 + Math.floor((processed / total) * 50);
+                    // Update frequently
+                    if (processed % Math.ceil(total / 100) === 0 || processed === total) {
+                        await this.updateProgress(scan, percent, `Scanning files: ${processed}/${total}`);
+                    }
+                }
+            );
+            await this.updateProgress(scan, 70, 'Secret scan completed');
+
+            // Generate Dependency Graph
+            scan.dependencyGraph = await this.generateDependencyGraph(scanDir, scan.project.packageManager);
+            await this.updateProgress(scan, 75, 'Dependency graph generated');
+
             this.logger.log(`Running vulnerability scan for scan ${scanId}...`);
 
             // Run full audit
@@ -157,28 +178,15 @@ export class ScanProcessor {
                 const isDevDependency = !prodVulnSet.has(key);
                 return { ...v, isDevDependency, type: VulnerabilityType.DEPENDENCY };
             });
-            await this.updateProgress(scan, 40, 'Dependency audit completed');
+            await this.updateProgress(scan, 85, 'Dependency audit completed');
 
             // Run Docker Scan
             const dockerVulns = await this.scanDocker(scan.project.repositoryUrl, scan.project.branch, user.accessToken);
             vulnerabilities.push(...dockerVulns);
-            await this.updateProgress(scan, 60, 'Docker scan completed');
-
-            // Run Secret Scan
-            const secretVulns = await this.scanSecrets(
-                scan.project.repositoryUrl,
-                scan.project.branch,
-                user.accessToken,
-                async (processed, total) => {
-                    const percent = 60 + Math.floor((processed / total) * 20);
-                    // Only update DB every 2% progress or if changed significantly
-                    if (processed % Math.ceil(total / 50) === 0 || processed === total) {
-                        await this.updateProgress(scan, percent, `Scanning files: ${processed}/${total}`);
-                    }
-                }
-            );
+            await this.updateProgress(scan, 90, 'Docker scan completed');
             vulnerabilities.push(...secretVulns);
-            await this.updateProgress(scan, 80, 'Secret scan completed');
+
+            // Secret scan moved up
 
             // Fetch whitelist rules
             const whitelistRules = await this.whitelistService.findAllByProject(scan.project.id);
@@ -292,7 +300,7 @@ export class ScanProcessor {
                     scan.commitSha,
                     statusState,
                     description,
-                    `http://localhost:5173/scans/${scan.id}`,
+                    `http://localhost:5173/projects/${scan.project.id}/scans/${scan.id}`,
                     user.accessToken
                 );
             }
@@ -318,7 +326,7 @@ export class ScanProcessor {
                             scan.commitSha,
                             'error',
                             `Scan failed: ${error.message}`,
-                            `http://localhost:5173/scans/${scan.id}`,
+                            `http://localhost:5173/projects/${scan.project.id}/scans/${scan.id}`,
                             userForError.accessToken
                         );
                     }
@@ -491,8 +499,8 @@ export class ScanProcessor {
         try {
             const dockerfileContent = await this.githubService.getFileContent(repoUrl, 'Dockerfile', branch, token);
 
-            if (/FROM\s+[\w\-\/\.]+(:latest)?\s+/i.test(dockerfileContent) || !/FROM\s+[\w\-\/\.]+:/i.test(dockerfileContent)) {
-                if (/FROM\s+[\w\-\/\.]+:latest/i.test(dockerfileContent) || /FROM\s+[\w\-\/\.]+\s+$/m.test(dockerfileContent)) {
+            if (/ FROM\s+ [\w\-\/\.]+(:latest)?\s+/i.test(dockerfileContent) || !/FROM\s+[\w\-\/\.]+:/i.test(dockerfileContent)) {
+                if (/ FROM\s + [\w\-\/\.]+:latest/i.test(dockerfileContent) || /FROM\s+[\w\-\/\.]+\s+$/m.test(dockerfileContent)) {
                     vulns.push({
                         packageName: 'Dockerfile',
                         version: 'current',
@@ -655,5 +663,53 @@ export class ScanProcessor {
         }
 
         return vulns;
+    }
+
+    private async generateDependencyGraph(scanDir: string, packageManager: string): Promise<any> {
+        if (packageManager !== 'npm') return null;
+
+        try {
+            const lockPath = path.join(scanDir, 'package-lock.json');
+            if (!await fs.pathExists(lockPath)) return null;
+
+            const lockContent = await fs.readJson(lockPath);
+            const nodes: any[] = [];
+            const links: any[] = [];
+            const addedNodes = new Set<string>();
+
+            const addNode = (id: string, group: number) => {
+                if (!addedNodes.has(id)) {
+                    nodes.push({ id, group });
+                    addedNodes.add(id);
+                }
+            };
+
+            const rootName = lockContent.name || 'root';
+            addNode(rootName, 1);
+
+            let deps = lockContent.dependencies;
+            if (!deps && lockContent.packages && lockContent.packages['']) {
+                deps = lockContent.packages[''].dependencies;
+            }
+
+            if (deps) {
+                for (const [name, version] of Object.entries(deps as any)) {
+                    addNode(name, 2);
+                    links.push({ source: rootName, target: name });
+
+                    if (lockContent.dependencies && lockContent.dependencies[name] && lockContent.dependencies[name].dependencies) {
+                        for (const [subName, subVer] of Object.entries(lockContent.dependencies[name].dependencies as any)) {
+                            addNode(subName, 3);
+                            links.push({ source: name, target: subName });
+                        }
+                    }
+                }
+            }
+
+            return { nodes, links };
+        } catch (e) {
+            this.logger.warn(`Failed to generate dependency graph: ${e.message}`);
+            return null;
+        }
     }
 }

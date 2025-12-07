@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import { FolderGit2, LayoutDashboard, ShieldAlert, Settings, BookOpen } from 'lucide-vue-next';
+import { useRoute } from 'vue-router';
 import LanguageSwitcher from './LanguageSwitcher.vue';
 import ThemeToggle from './ThemeToggle.vue';
+
+const route = useRoute();
 </script>
 
 <template>
@@ -29,7 +32,7 @@ import ThemeToggle from './ThemeToggle.vue';
         <router-link
           to="/projects"
           class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
-          active-class="bg-accent text-accent-foreground"
+          :class="{ 'bg-accent text-accent-foreground': route.path.startsWith('/projects') }"
         >
           <FolderGit2 class="w-4 h-4" />
           {{ $t('projects.title') }}

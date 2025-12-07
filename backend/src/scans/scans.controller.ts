@@ -2,17 +2,17 @@ import { Controller, Get, Post, Param, UseGuards, Req, Query } from '@nestjs/com
 import { AuthGuard } from '@nestjs/passport';
 import { ScansService } from './scans.service';
 
-@Controller('scans')
+@Controller('projects/:projectId/scans')
 @UseGuards(AuthGuard('jwt'))
 export class ScansController {
     constructor(private readonly scansService: ScansService) { }
 
-    @Post('trigger/:projectId')
+    @Post()
     triggerScan(@Param('projectId') projectId: string, @Req() req) {
         return this.scansService.triggerScan(+projectId, req.user.userId);
     }
 
-    @Get('project/:projectId')
+    @Get()
     findAll(
         @Param('projectId') projectId: string,
         @Req() req,
@@ -22,8 +22,8 @@ export class ScansController {
         return this.scansService.findAll(+projectId, req.user.userId, +page, +limit);
     }
 
-    @Get(':id')
-    findOne(@Param('id') id: string) {
-        return this.scansService.findOne(+id);
+    @Get(':scanId')
+    findOne(@Param('scanId') scanId: string) {
+        return this.scansService.findOne(+scanId);
     }
 }

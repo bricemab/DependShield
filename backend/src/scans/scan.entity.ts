@@ -39,6 +39,9 @@ export class Scan {
     @Column({ type: 'int', default: 0 })
     progress: number; // 0-100
 
+    @Column({ type: 'json', nullable: true })
+    dependencyGraph: any;
+
     @Column({ type: 'text', nullable: true })
     errorMessage: string;
 

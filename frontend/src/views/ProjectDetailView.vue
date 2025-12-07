@@ -445,7 +445,7 @@ watch(latestScanId, async (newId) => {
         // Force refresh details for this scan
         // This ensures scanStore.currentScan is effectively set to the latest completed scan,
         // and scanStore.vulnerabilities are populated for it.
-        await scanStore.fetchScanDetails(newId, true);
+        await scanStore.fetchScanDetails(projectId.value, newId, true);
     }
 });
 
@@ -461,7 +461,7 @@ onMounted(async () => {
   // Fetch details of the latest scan for stats
   // Use computed latestScanId to get the most relevant one (completed preferably)
   if (latestScanId.value) {
-      await scanStore.fetchScanDetails(latestScanId.value, true);
+      await scanStore.fetchScanDetails(projectId.value, latestScanId.value, true);
   }
 
   await projectStore.fetchWhitelistRules(projectId.value);
@@ -748,7 +748,7 @@ onMounted(async () => {
                     <ul v-else class="space-y-4">
                         <li v-for="scan in scanStore.scans.slice(0, 5)" :key="scan.id" 
                             class="flex justify-between items-center border-b pb-2 last:border-0 hover:bg-muted/50 p-2 rounded cursor-pointer transition-colors"
-                             @click="router.push(`/scans/${scan.id}`)"
+                             @click="router.push(`/projects/${projectId}/scans/${scan.id}`)"
                         >
                             <div>
                                 <div class="font-medium text-sm flex items-center gap-2">
@@ -822,7 +822,7 @@ onMounted(async () => {
                       <td class="px-4 py-3 text-sm text-muted-foreground">{{ formatDate(scan.startedAt) }}</td>
                       <td class="px-4 py-3">
                         <button
-                          @click="router.push(`/scans/${scan.id}`)"
+                          @click="router.push(`/projects/${projectId}/scans/${scan.id}`)"
                           class="text-sm font-medium text-primary hover:underline flex items-center gap-1"
                         >
                           Details <ChevronRight class="w-3 h-3" />

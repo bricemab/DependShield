@@ -11,6 +11,7 @@ interface Scan {
     status: 'pending' | 'running' | 'completed' | 'failed';
     vulnerabilitiesCount: number;
     score: number;
+    dependencyGraph?: any;
     errorMessage?: string;
     startedAt: string;
     completedAt?: string;
@@ -48,7 +49,7 @@ export const useScanStore = defineStore('scan', () => {
     async function triggerScan(projectId: number) {
         loading.value = true;
         try {
-            const response = await axios.post(`${API_URL}/scans/trigger/${projectId}`, {}, getHeaders());
+            const response = await axios.post(`${API_URL}/projects/${projectId}/scans`, {}, getHeaders());
             return response.data;
         } catch (error) {
             console.error('Failed to trigger scan', error);
@@ -68,7 +69,7 @@ export const useScanStore = defineStore('scan', () => {
     async function fetchScans(projectId: number, background = false, page = 1, limit = 10) {
         if (!background) loading.value = true;
         try {
-            const response = await axios.get(`${API_URL}/scans/project/${projectId}`, {
+            const response = await axios.get(`${API_URL}/projects/${projectId}/scans`, {
                 ...getHeaders(),
                 params: { page, limit },
             });
@@ -86,10 +87,10 @@ export const useScanStore = defineStore('scan', () => {
         }
     }
 
-    async function fetchScanDetails(scanId: number, background = false) {
+    async function fetchScanDetails(projectId: number, scanId: number, background = false) {
         if (!background) loading.value = true;
         try {
-            const response = await axios.get(`${API_URL}/scans/${scanId}`, getHeaders());
+            const response = await axios.get(`${API_URL}/projects/${projectId}/scans/${scanId}`, getHeaders());
             currentScan.value = response.data;
 
             // Fetch whitelist rules for this project to map status
