@@ -19,6 +19,7 @@ import { AuditModule } from './audit/audit.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { RedisModule } from './redis/redis.module';
 import { EpssModule } from './epss/epss.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -48,8 +49,9 @@ import { EpssModule } from './epss/epss.module';
     SchedulerModule,
     ReportsModule,
     AuditModule,
-    WebhooksModule,
     EpssModule,
+    DashboardModule,
+    WebhooksModule,
   ],
   controllers: [AppController],
   providers: [AppService],
