@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
+import OnboardingView from '../views/OnboardingView.vue';
 import LoginView from '../views/LoginView.vue';
 import AuthCallbackView from '../views/AuthCallbackView.vue';
 
@@ -62,6 +63,12 @@ const router = createRouter({
             name: 'auth-callback',
             component: AuthCallbackView,
         },
+        {
+            path: '/onboarding',
+            name: 'onboarding',
+            component: OnboardingView,
+            meta: { requiresAuth: true },
+        },
     ],
 });
 
@@ -69,6 +76,8 @@ router.beforeEach((to, _from, next) => {
     const authStore = useAuthStore();
     if (to.meta.requiresAuth && !authStore.isAuthenticated) {
         next('/login');
+    } else if (to.meta.requiresAuth && authStore.isAuthenticated && !authStore.user?.isOnboarded && to.name !== 'onboarding') {
+        next('/onboarding');
     } else {
         next();
     }

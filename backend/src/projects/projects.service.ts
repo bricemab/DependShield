@@ -12,7 +12,7 @@ import { Project } from './project.entity';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { UsersService } from '../users/users.service';
-import { UserPlan } from '../users/user.entity';
+import { PlanType } from '../organizations/organization.entity';
 import { GithubProvider } from '../providers/github/github.provider';
 import { GitProvider } from '../providers/interfaces/git-provider.interface';
 import { AuditService } from '../audit/audit.service';
@@ -61,7 +61,7 @@ export class ProjectsService {
   async findOneById(id: number): Promise<Project> {
     const project = await this.projectsRepository.findOne({
       where: { id },
-      relations: ['user'],
+      relations: ['user', 'user.organizations'],
     });
     if (!project) {
       throw new NotFoundException(`Project with ID ${id} not found`);
@@ -91,6 +91,9 @@ export class ProjectsService {
     userId: number,
   ): Promise<Project> {
     const user = await this.usersService.findOne(userId);
+    // Fetch orgs to get plan
+    const plan = await this.usersService.getUserPlan(userId);
+
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -100,12 +103,12 @@ export class ProjectsService {
       where: { userId },
     });
     let maxProjects = 3; // Starter
-    if (user.plan === UserPlan.PRO) maxProjects = 20;
-    if (user.plan === UserPlan.ENTERPRISE) maxProjects = 9999;
+    if (plan === PlanType.PRO) maxProjects = 20;
+    if (plan === PlanType.ENTERPRISE) maxProjects = 9999;
 
     if (projectCount >= maxProjects) {
       throw new BadRequestException(
-        `Plan limit reached. Your plan (${user.plan}) allows a maximum of ${maxProjects} projects.`,
+        `Plan limit reached. Your plan (${plan}) allows a maximum of ${maxProjects} projects.`,
       );
     }
 
@@ -126,7 +129,7 @@ export class ProjectsService {
 
         // Enforce truth: if Git says private, we treat it as private regardless of DTO
         if (repoMetadata.private) {
-          if (user.plan === UserPlan.STARTER) {
+          if (plan === PlanType.STARTER) {
             throw new BadRequestException(
               'Private repositories are only supported on PRO and ENTERPRISE plans.',
             );
@@ -148,7 +151,7 @@ export class ProjectsService {
 
     // Fallback check on DTO (in case fetch failed or wasn't run)
     if (createProjectDto.isPrivate) {
-      if (user.plan === UserPlan.STARTER) {
+      if (plan === PlanType.STARTER) {
         throw new BadRequestException(
           'Private repositories are only supported on PRO and ENTERPRISE plans.',
         );
@@ -169,7 +172,7 @@ export class ProjectsService {
       const normalizedPath = createProjectDto.lockfilePath.replace(/^\.\//, '');
       const isNested = normalizedPath.includes('/');
 
-      if (isNested && user.plan === UserPlan.STARTER) {
+      if (isNested && plan === PlanType.STARTER) {
         throw new BadRequestException(
           'Monorepo support (nested lockfiles) is only available on PRO and ENTERPRISE plans.',
         );
@@ -193,7 +196,10 @@ export class ProjectsService {
 
     // 4. Email Features Check
     if (updateProjectDto.emailEnabled === true) {
-      if (user.plan === UserPlan.STARTER) {
+      // Re-fetch plan
+      const plan = await this.usersService.getUserPlan(userId);
+
+      if (plan === PlanType.STARTER) {
         throw new BadRequestException(
           'Email notifications are only supported on PRO and ENTERPRISE plans.',
         );

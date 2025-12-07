@@ -9,6 +9,7 @@ import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { Scan, ScanStatus } from './scan.entity';
+import { PlanType } from '../organizations/organization.entity';
 import {
   Vulnerability,
   VulnerabilitySeverity,
@@ -53,7 +54,7 @@ export class ScanProcessor {
 
     const scan = await this.scansRepository.findOne({
       where: { id: scanId },
-      relations: ['project', 'project.user'],
+      relations: ['project', 'project.user', 'project.user.organizations'],
     });
 
     if (!scan) {
@@ -337,9 +338,12 @@ export class ScanProcessor {
       await this.updateProgress(scan, 90, 'License scan completed');
 
       // Supply Chain Security (Typosquatting) - PRO & ENTERPRISE ONLY
+      const userOrgs = scan.project.user.organizations;
+      const plan = userOrgs && userOrgs.length > 0 ? userOrgs[0].plan : PlanType.STARTER;
+
       if (
-        scan.project.user.plan === 'PRO' ||
-        scan.project.user.plan === 'ENTERPRISE'
+        plan === PlanType.PRO ||
+        plan === PlanType.ENTERPRISE
       ) {
         try {
           this.logger.log(`Starting Supply Chain Scan (Typosquatting)...`);
@@ -363,7 +367,7 @@ export class ScanProcessor {
         }
       } else {
         this.logger.log(
-          `Skipping Supply Chain Scan (Plan restriction: ${scan.project.user.plan})`,
+          `Skipping Supply Chain Scan (Plan restriction: ${plan})`,
         );
       }
       await this.updateProgress(scan, 92, 'Supply Chain check completed');

@@ -16,6 +16,7 @@ import { ReportsModule } from './reports/reports.module';
 import configuration from './config/configuration';
 
 import { AuditModule } from './audit/audit.module';
+import { OrganizationsModule } from './organizations/organizations.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
 import { RedisModule } from './redis/redis.module';
 import { EpssModule } from './epss/epss.module';
@@ -54,8 +55,9 @@ import { RemediationModule } from './remediation/remediation.module';
     DashboardModule,
     WebhooksModule,
     RemediationModule,
+    OrganizationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

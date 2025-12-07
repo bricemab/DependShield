@@ -9,6 +9,7 @@ interface User {
     email: string;
     avatarUrl: string;
     plan: 'STARTER' | 'PRO' | 'ENTERPRISE';
+    isOnboarded?: boolean;
 }
 
 export const useAuthStore = defineStore('auth', () => {

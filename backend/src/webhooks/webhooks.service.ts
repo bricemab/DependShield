@@ -9,6 +9,7 @@ import { Webhook, WebhookType, WebhookEvent } from './webhook.entity';
 import { ProjectsService } from '../projects/projects.service';
 import { CreateWebhookDto } from './dto/create-webhook.dto';
 import { UsersService } from '../users/users.service';
+import { PlanType } from '../organizations/organization.entity';
 import { Scan } from '../scans/scan.entity';
 import axios from 'axios';
 
@@ -19,7 +20,7 @@ export class WebhooksService {
     private webhooksRepository: Repository<Webhook>,
     private projectsService: ProjectsService,
     private usersService: UsersService,
-  ) {}
+  ) { }
 
   async findAllByProject(
     projectId: number,
@@ -36,8 +37,9 @@ export class WebhooksService {
     userId: number,
     createDto: CreateWebhookDto,
   ): Promise<Webhook> {
-    const user = await this.usersService.findOne(userId);
-    if (user.plan !== 'PRO' && user.plan !== 'ENTERPRISE') {
+    const plan = await this.usersService.getUserPlan(userId);
+
+    if (plan !== PlanType.PRO && plan !== PlanType.ENTERPRISE) {
       throw new ForbiddenException(
         'Webhooks are available for PRO and ENTERPRISE plans only.',
       );

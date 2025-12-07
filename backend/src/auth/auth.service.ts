@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { JwtService } from '@nestjs/jwt';
 import { NotificationsService } from '../notifications/notifications.service';
+import { OrganizationsService } from '../organizations/organizations.service';
 
 @Injectable()
 export class AuthService {
@@ -9,7 +10,8 @@ export class AuthService {
     private usersService: UsersService,
     private jwtService: JwtService,
     private notificationsService: NotificationsService,
-  ) {}
+    private organizationsService: OrganizationsService,
+  ) { }
 
   async validateGithubUser(profile: any, accessToken: string): Promise<any> {
     const { id, username, photos, emails } = profile;
@@ -30,6 +32,9 @@ export class AuthService {
     if (!existingUser && email) {
       // New user! Send welcome email
       this.notificationsService.sendWelcomeEmail(email, username || 'User');
+
+      // Create default Organization
+      await this.organizationsService.createDefault(user);
     }
 
     return user;
