@@ -25,7 +25,10 @@ const fetchOrganization = async () => {
         isLoading.value = true;
         const res = await api.get('/organizations');
         if (res.data && res.data.length > 0) {
-            const org = res.data[0];
+            // Find the active organization or fallback to the first one
+            const activeOrgId = authStore.activeOrganizationId;
+            const org = res.data.find((o: any) => o.id == activeOrgId) || res.data[0];
+            
             orgName.value = org.name;
             orgId.value = org.id;
         } else {

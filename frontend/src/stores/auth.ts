@@ -22,16 +22,29 @@ interface User {
 export const useAuthStore = defineStore('auth', () => {
     const token = useStorage('ds_token', '');
     const user = ref<User | null>(null);
+    const activeOrganizationId = useStorage<number | null>('ds_active_org_id', null);
 
     const isAuthenticated = computed(() => !!token.value);
+
+    // Compute the full active organization object based on the ID
+    // Compute the full active organization object based on the ID
+    const activeOrganization = computed(() => {
+        if (!user.value?.organizations || !activeOrganizationId.value) return null;
+        return user.value.organizations.find(org => org.id == activeOrganizationId.value) || user.value.organizations[0];
+    });
 
     function setToken(newToken: string) {
         token.value = newToken;
     }
 
+    function setActiveOrganization(id: number) {
+        activeOrganizationId.value = id;
+    }
+
     function logout() {
         token.value = '';
         user.value = null;
+        activeOrganizationId.value = null;
         // Redirect to login handled by component or router
         document.documentElement.classList.remove('dark');
         localStorage.removeItem('theme');
@@ -44,6 +57,19 @@ export const useAuthStore = defineStore('auth', () => {
                 headers: { Authorization: `Bearer ${token.value}` }
             });
             user.value = response.data;
+
+            // Initialize active organization if not set or invalid
+            if (user.value?.organizations && user.value.organizations.length > 0) {
+                // Check if current ID exists in user's organizations (loose equality for safety with localStorage)
+                const currentId = activeOrganizationId.value;
+                const isValid = currentId && user.value.organizations.some(org => org.id == currentId);
+
+                if (!isValid) {
+                    activeOrganizationId.value = user.value.organizations[0].id;
+                }
+            } else {
+                activeOrganizationId.value = null;
+            }
 
             // Apply User Settings
             if (user.value?.settings) {
@@ -75,9 +101,12 @@ export const useAuthStore = defineStore('auth', () => {
     return {
         token,
         user,
+        activeOrganizationId,
+        activeOrganization,
         isAuthenticated,
         setToken,
         logout,
         fetchUser,
+        setActiveOrganization
     };
 });

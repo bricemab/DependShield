@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { onMounted, ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useProjectStore } from '../stores/project';
 import { 
@@ -16,11 +16,19 @@ import DashboardLayout from '../layouts/DashboardLayout.vue';
 import Dialog from '../components/ui/Dialog.vue';
 import { toast } from 'vue-sonner';
 
+import { useAuthStore } from '../stores/auth';
+
 const router = useRouter();
 const projectStore = useProjectStore();
+const authStore = useAuthStore();
 
 onMounted(() => {
   projectStore.fetchProjects();
+});
+
+const filteredProjects = computed(() => {
+    if (!authStore.activeOrganizationId) return projectStore.projects;
+    return projectStore.projects.filter(p => p.organizationId == authStore.activeOrganizationId);
 });
 
 const handleCreateProject = () => {
@@ -115,7 +123,7 @@ const getHealthColor = (score: number) => {
       </div>
 
       <!-- Empty State -->
-      <div v-else-if="projectStore.projects.length === 0" class="flex flex-col items-center justify-center py-32 text-center relative z-10">
+      <div v-else-if="filteredProjects.length === 0" class="flex flex-col items-center justify-center py-32 text-center relative z-10">
         <div class="w-24 h-24 rounded-full bg-muted/50 flex items-center justify-center mb-6 backdrop-blur-sm border border-border/50">
           <FolderGit2 class="w-10 h-10 text-muted-foreground/50" />
         </div>
@@ -123,7 +131,7 @@ const getHealthColor = (score: number) => {
         <p class="text-muted-foreground mb-8 max-w-sm mx-auto">{{ $t('projects.create_first') }}</p>
         <button
           @click="handleCreateProject"
-          class="inline-flex items-center justify-center rounded-full text-sm font-medium transition-colors bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-8"
+            class="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2 gap-2"
         >
           Get Started
         </button>
@@ -132,7 +140,7 @@ const getHealthColor = (score: number) => {
       <!-- Projects Grid -->
       <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 relative z-10">
         <div
-          v-for="project in projectStore.projects"
+          v-for="project in filteredProjects"
           :key="project.id"
           @click="handleViewProject(project.id)"
           class="group relative bg-card/40 hover:bg-card/60 backdrop-blur-md border border-border/50 hover:border-primary/50 rounded-xl p-6 cursor-pointer transition-all duration-300 hover:shadow-2xl hover:shadow-primary/10 hover:-translate-y-1 overflow-hidden"

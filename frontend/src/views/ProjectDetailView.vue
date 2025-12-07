@@ -446,7 +446,8 @@ const latestScanStatus = computed(() => {
 });
 
 watch(latestScanStatus, async (newStatus, oldStatus) => {
-    if (newStatus === 'completed' && oldStatus !== 'completed' && latestScanId.value) {
+    // Only trigger if we have a valid transition (ignore initial load where oldStatus is undefined)
+    if (newStatus === 'completed' && oldStatus !== undefined && oldStatus !== 'completed' && latestScanId.value) {
         // Scan just finished, fetch full details to update charts
         await scanStore.fetchScanDetails(projectId.value, latestScanId.value, true);
         toast.success('Scan completed', { description: 'Dashboard updated with new results.' });
@@ -459,21 +460,37 @@ onMounted(async () => {
   // Clear any existing scan data from previous views
   scanStore.reset();
 
-  if (!project.value) {
-    await projectStore.fetchProjects();
-  }
-  await scanStore.fetchScans(projectId.value);
-  
-  // Fetch details of the latest scan for stats
-  // Use computed latestScanId to get the most relevant one (completed preferably)
-  if (latestScanId.value) {
-      await scanStore.fetchScanDetails(projectId.value, latestScanId.value, true);
-  }
+  try {
+      if (!project.value) {
+        await projectStore.fetchProjects();
+      }
+      
+      // If still not found after fetch, redirect
+      if (!project.value) {
+          toast.error('Project not found or access denied.');
+          router.push('/projects');
+          return;
+      }
 
-  await projectStore.fetchWhitelistRules(projectId.value);
-  initSettingsForm();
-  checkPolling();
-  fetchAuditLogs();
+      await scanStore.fetchScans(projectId.value);
+      
+      // Fetch details of the latest scan for stats
+      // Use computed latestScanId to get the most relevant one (completed preferably)
+      if (latestScanId.value) {
+          await scanStore.fetchScanDetails(projectId.value, latestScanId.value, true);
+      }
+
+      await projectStore.fetchWhitelistRules(projectId.value);
+      initSettingsForm();
+      checkPolling();
+      fetchAuditLogs();
+  } catch (error: any) {
+      console.error('Error loading project:', error);
+      if (error.response && (error.response.status === 404 || error.response.status === 403)) {
+          toast.error('Project not found or access denied.');
+          router.push('/projects');
+      }
+  }
 });
 </script>
 

@@ -20,6 +20,7 @@ interface Project {
         failOnSeverity: string;
     };
     lastScan?: Scan; // Enriched property from backend
+    organizationId: number;
     createdAt: string;
     updatedAt: string;
 }

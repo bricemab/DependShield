@@ -61,12 +61,28 @@ export class ProjectsService {
   }
 
   async findOne(id: number, userId: number): Promise<Project> {
+    // Fetch project with its organization ID
     const project = await this.projectsRepository.findOne({
-      where: { id, userId },
+      where: { id },
+      relations: ['organization'],
     });
+
     if (!project) {
       throw new NotFoundException(`Project with ID ${id} not found`);
     }
+
+    // Check if user belongs to this organization
+    const user = await this.usersService.findOne(userId);
+    const userOrgIds = user.organizations.map((org) => org.id);
+
+    if (!project.organizationId || !userOrgIds.includes(project.organizationId)) {
+      // Double check: if project has no org, fallback to creator check (legacy)
+      if (!project.organizationId && project.userId === userId) {
+        return project;
+      }
+      throw new ForbiddenException(`You do not have access to this project's organization.`);
+    }
+
     return project;
   }
 
