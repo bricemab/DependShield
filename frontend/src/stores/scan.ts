@@ -8,16 +8,16 @@ const API_URL = 'http://localhost:3000';
 interface Scan {
     id: number;
     projectId: number;
+    number: number;
     status: 'pending' | 'running' | 'completed' | 'failed';
     vulnerabilitiesCount: number;
     score: number;
+    progress: number;
     dependencyGraph?: any;
-    errorMessage?: string;
     startedAt: string;
     completedAt?: string;
-    progress: number; // 0-100
-    number?: number;
-    project?: { id: number; name: string; };
+    vulnerabilities?: Vulnerability[];
+    estimatedWaitTime?: number;
 }
 
 interface Vulnerability {

@@ -44,9 +44,9 @@ export class ScanProcessor {
     private epssService: EpssService,
     private licenseService: LicenseService,
     private supplyChainService: SupplyChainService,
-  ) {}
+  ) { }
 
-  @Process('scan')
+  @Process({ name: 'scan', concurrency: Number(process.env.SCAN_CONCURRENCY || 5) })
   async handleScan(job: Job<{ scanId: number }>) {
     const { scanId } = job.data;
     this.logger.log(`Processing scan ${scanId}...`);

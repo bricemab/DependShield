@@ -27,7 +27,7 @@ export class ScansService {
     private projectsService: ProjectsService,
     private configService: ConfigService,
     private auditService: AuditService,
-  ) {}
+  ) { }
 
   async triggerScan(projectId: number, userId?: number): Promise<Scan> {
     this.logger.log(
@@ -90,11 +90,18 @@ export class ScansService {
     await this.scansRepository.save(scan);
     this.logger.log(`Scan record created: ${scan.id}`);
 
-    // Add to queue
-    await this.scansQueue.add('scan', {
-      scanId: scan.id,
-    });
-    this.logger.log(`Scan ${scan.id} added to queue`);
+    // Priority Logic: ENTERPRISE (1) > PRO (5) > STARTER (10)
+    let priority = 10;
+    if (userPlan === UserPlan.ENTERPRISE) priority = 1;
+    else if (userPlan === UserPlan.PRO) priority = 5;
+
+    // Add to queue with priority
+    await this.scansQueue.add(
+      'scan',
+      { scanId: scan.id },
+      { priority },
+    );
+    this.logger.log(`Scan ${scan.id} added to queue with priority ${priority}`);
 
     await this.auditService.log(projectId, userId || null, 'SCAN_STARTED', {
       scanId: scan.id,
@@ -124,6 +131,8 @@ export class ScansService {
       take: limit,
     });
 
+    await this.populateWaitTimes(data);
+
     return {
       data,
       total,
@@ -133,11 +142,41 @@ export class ScansService {
     };
   }
 
+  // Optimize: Populate wait times
+  private async populateWaitTimes(scans: Scan[]) {
+    const pendingScans = scans.filter(s => s.status === ScanStatus.PENDING);
+    if (pendingScans.length === 0) return;
+
+    const concurrency = Number(process.env.SCAN_CONCURRENCY || 5);
+    const avgScanTime = 30; // seconds
+
+    // Get count of pending scans BEFORE these
+    // We process each individually for correctness or fetch all pending IDs
+    const allPendingIds = await this.scansRepository.find({
+      where: { status: ScanStatus.PENDING },
+      select: ['id'],
+      order: { id: 'ASC' }
+    });
+    const allPendingIdsList = allPendingIds.map(s => s.id);
+
+    pendingScans.forEach(scan => {
+      const position = allPendingIdsList.indexOf(scan.id);
+      if (position !== -1) {
+        // Formula: (Position // Concurrency) * AvgTime + AvgTime
+        // Use floor to group into batches
+        const batchesAhead = Math.floor(position / concurrency);
+        scan.estimatedWaitTime = (batchesAhead * avgScanTime) + avgScanTime;
+      }
+    });
+  }
+
   async findOne(scanId: number): Promise<Scan> {
-    return this.scansRepository.findOne({
+    const scan = await this.scansRepository.findOne({
       where: { id: scanId },
       relations: ['vulnerabilities', 'project'],
     });
+    if (scan) await this.populateWaitTimes([scan]);
+    return scan;
   }
 
   async findLastScan(projectId: number): Promise<Scan | null> {

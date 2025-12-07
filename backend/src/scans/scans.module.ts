@@ -20,6 +20,7 @@ import { EpssModule } from '../epss/epss.module';
 import { LicenseService } from './license.service';
 import { SupplyChainService } from './supply-chain.service';
 import { SbomService } from './sbom.service';
+import { QueueSchedulerService } from './queue-scheduler.service';
 
 @Module({
   imports: [
@@ -44,6 +45,7 @@ import { SbomService } from './sbom.service';
     LicenseService,
     SbomService,
     SupplyChainService,
+    QueueSchedulerService,
   ],
   exports: [
     ScansService,
@@ -54,4 +56,4 @@ import { SbomService } from './sbom.service';
     SupplyChainService,
   ],
 })
-export class ScansModule {}
+export class ScansModule { }

@@ -789,7 +789,13 @@ onMounted(async () => {
                                 </div>
                                 <div class="text-xs text-muted-foreground">{{ formatDate(scan.startedAt) }}</div>
                             </div>
-                            <span :class="getStatusColor(scan.status)" class="px-2 py-0.5 rounded text-xs font-medium border uppercase">{{ scan.status }}</span>
+                            <div class="flex flex-col items-end gap-1">
+                                <span :class="getStatusColor(scan.status)" class="px-2 py-0.5 rounded text-xs font-medium border uppercase">{{ scan.status }}</span>
+                                <span v-if="scan.status === 'pending' && scan.estimatedWaitTime" class="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <Clock class="w-3 h-3" />
+                                    ~{{ Math.ceil(scan.estimatedWaitTime) }}s
+                                </span>
+                            </div>
                         </li>
                     </ul>
                 </CardContent>
@@ -845,9 +851,15 @@ onMounted(async () => {
                           </div>
                           <span class="text-xs text-muted-foreground whitespace-nowrap">{{ scan.progress || 0 }}%</span>
                         </div>
-                        <span v-else :class="getStatusColor(scan.status)" class="px-2 py-1 rounded-md text-xs font-medium border inline-flex items-center gap-2">
-                          {{ scan.status }}
-                        </span>
+                        <div v-else class="flex flex-col gap-1">
+                          <span :class="getStatusColor(scan.status)" class="px-2 py-1 rounded-md text-xs font-medium border inline-flex items-center gap-2 w-fit">
+                            {{ scan.status }}
+                          </span>
+                          <span v-if="scan.status === 'pending' && scan.estimatedWaitTime" class="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Clock class="w-3 h-3" />
+                            Starts in ~{{ Math.ceil(scan.estimatedWaitTime) }}s
+                          </span>
+                        </div>
                       </td>
                       <td class="px-4 py-3 text-sm">{{ scan.vulnerabilitiesCount || 0 }}</td>
                       <td class="px-4 py-3 text-sm font-bold">{{ scan.score ? Number(scan.score).toFixed(1) : 'N/A' }}</td>

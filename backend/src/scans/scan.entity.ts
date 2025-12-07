@@ -69,4 +69,7 @@ export class Scan {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  // Virtual property for frontend display
+  estimatedWaitTime?: number;
 }
