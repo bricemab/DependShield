@@ -14,6 +14,7 @@ interface Scan {
     errorMessage?: string;
     startedAt: string;
     completedAt?: string;
+    progress: number; // 0-100
 }
 
 interface Vulnerability {
@@ -27,6 +28,8 @@ interface Vulnerability {
     url?: string;
     whitelisted: boolean;
     isDevDependency: boolean;
+    epssScore?: number | null;
+    epssPercentile?: number | null;
 }
 
 export const useScanStore = defineStore('scan', () => {

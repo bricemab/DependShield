@@ -34,4 +34,9 @@ export default () => ({
         password: process.env.EMAIL_PASSWORD || 'password',
         from: process.env.EMAIL_FROM || '"DependShield" <noreply@dependshield.com>',
     },
+    epss: {
+        apiUrl: process.env.EPSS_API_URL || 'https://api.first.org/data/v1/epss',
+        cacheTtl: parseInt(process.env.EPSS_CACHE_TTL, 10) || 86400, // 24 hours
+        batchSize: parseInt(process.env.EPSS_BATCH_SIZE, 10) || 100,
+    },
 });

@@ -30,8 +30,11 @@ export class Scan {
     @Column({ nullable: true })
     vulnerabilitiesCount: number;
 
-    @Column({ type: 'float', nullable: true })
+    @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
     score: number;
+
+    @Column({ type: 'int', default: 0 })
+    progress: number; // 0-100
 
     @Column({ type: 'text', nullable: true })
     errorMessage: string;

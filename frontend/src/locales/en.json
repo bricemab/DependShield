@@ -80,7 +80,13 @@
         "view_advisory": "View Advisory",
         "ignore_reason": "Reason for ignoring this vulnerability (optional):",
         "confirm_unignore": "Are you sure you want to stop ignoring this vulnerability?",
-        "search_placeholder": "Search by package name..."
+        "search_placeholder": "Search by package name...",
+        "epss_risk": "EPSS Risk",
+        "epss_tooltip": "Exploit Prediction Score: {score}% probability of exploitation in 30 days (Top {percentile}% of all CVEs)",
+        "epss_very_high": "Very High",
+        "epss_high": "High",
+        "epss_medium": "Medium",
+        "epss_low": "Low"
     },
     "create_project": {
         "title": "Create Project",

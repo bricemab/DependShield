@@ -80,7 +80,13 @@
         "view_advisory": "Voir l'avis",
         "ignore_reason": "Raison pour ignorer cette vulnérabilité (optionnel) :",
         "confirm_unignore": "Êtes-vous sûr de vouloir arrêter d'ignorer cette vulnérabilité ?",
-        "search_placeholder": "Rechercher par nom de paquet..."
+        "search_placeholder": "Rechercher par nom de paquet...",
+        "epss_risk": "Risque EPSS",
+        "epss_tooltip": "Score de Prédiction d'Exploitation : {score}% de probabilité d'exploitation dans 30 jours (Top {percentile}% de toutes les CVE)",
+        "epss_very_high": "Très Élevé",
+        "epss_high": "Élevé",
+        "epss_medium": "Moyen",
+        "epss_low": "Faible"
     },
     "create_project": {
         "title": "Créer un projet",

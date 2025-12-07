@@ -30,13 +30,14 @@ Fichier de référence interne pour l’IA
 - [ ] Webhooks (Slack/Discord/Teams)
 
 ### DOING
-- [ ] Implement Webhooks
+- [ ] (Empty)
 
 ### ON HOLD
 - [ ] Support GitLab / Bitbucket
 - [ ] Tests E2E Frontend (Cypress)
 
 ### DONE
+- [x] EPSS Score Integration (PRO/ENTERPRISE feature)
 - [x] Feature A: Scan "Light" via API (Download lockfile only)
 - [x] Feature B: GitHub Status Checks Integration
 - [x] Feature C: Dev vs Runtime Dependency Distinction

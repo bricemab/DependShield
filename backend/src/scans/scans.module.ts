@@ -16,6 +16,7 @@ import { AuditModule } from '../audit/audit.module';
 import { GithubService } from './github.service';
 import { UsersModule } from '../users/users.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
+import { EpssModule } from '../epss/epss.module';
 
 @Module({
     imports: [
@@ -29,6 +30,7 @@ import { WebhooksModule } from '../webhooks/webhooks.module';
         AuditModule,
         UsersModule,
         forwardRef(() => WebhooksModule),
+        EpssModule,
     ],
     controllers: [ScansController, WhitelistController],
     providers: [ScansService, ScanProcessor, WhitelistService, GithubService],

@@ -774,13 +774,21 @@ onMounted(async () => {
                     <tr v-for="scan in scanStore.scans" :key="scan.id" class="hover:bg-muted/50 transition-colors">
                       <td class="px-4 py-3 text-sm font-mono">#{{ scan.id }}</td>
                       <td class="px-4 py-3">
-                        <span :class="getStatusColor(scan.status)" class="px-2 py-1 rounded-md text-xs font-medium border inline-flex items-center gap-2">
-                          <div v-if="scan.status === 'running'" class="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+                        <div v-if="scan.status === 'running'" class="flex items-center gap-3">
+                          <div class="w-32 bg-secondary rounded-full h-2">
+                            <div 
+                              class="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                              :style="{ width: `${scan.progress || 0}%` }"
+                            ></div>
+                          </div>
+                          <span class="text-xs text-muted-foreground whitespace-nowrap">{{ scan.progress || 0 }}%</span>
+                        </div>
+                        <span v-else :class="getStatusColor(scan.status)" class="px-2 py-1 rounded-md text-xs font-medium border inline-flex items-center gap-2">
                           {{ scan.status }}
                         </span>
                       </td>
                       <td class="px-4 py-3 text-sm">{{ scan.vulnerabilitiesCount || 0 }}</td>
-                      <td class="px-4 py-3 text-sm font-bold">{{ scan.score?.toFixed(1) || 'N/A' }}</td>
+                      <td class="px-4 py-3 text-sm font-bold">{{ scan.score ? Number(scan.score).toFixed(1) : 'N/A' }}</td>
                       <td class="px-4 py-3 text-sm text-muted-foreground">{{ formatDate(scan.startedAt) }}</td>
                       <td class="px-4 py-3">
                         <button

@@ -16,6 +16,7 @@ import { GithubService } from './github.service';
 import { UsersService } from '../users/users.service';
 import { WebhooksService } from '../webhooks/webhooks.service';
 import { WebhookEvent } from '../webhooks/webhook.entity';
+import { EpssService } from '../epss/epss.service';
 
 const execAsync = promisify(exec);
 
@@ -34,6 +35,7 @@ export class ScanProcessor {
         private githubService: GithubService,
         private usersService: UsersService,
         private webhooksService: WebhooksService,
+        private epssService: EpssService,
     ) { }
 
     @Process('scan')
@@ -61,6 +63,7 @@ export class ScanProcessor {
 
             // Ensure temp directory exists
             await fs.ensureDir(scanDir);
+            await this.updateProgress(scan, 10, 'Initializing scan...');
 
             this.logger.log(`Fetching lockfile via GitHub API for scan ${scanId}...`);
 
@@ -117,6 +120,7 @@ export class ScanProcessor {
             const savedLockfilename = path.basename(targetPath);
             await fs.writeFile(path.join(scanDir, savedLockfilename), lockfileContent);
             this.logger.log(`Lockfile ${savedLockfilename} fetched and saved to ${scanDir}`);
+            await this.updateProgress(scan, 20, 'Lockfile downloaded');
 
             // Also fetch package.json just in case
             try {
@@ -153,17 +157,79 @@ export class ScanProcessor {
                 const isDevDependency = !prodVulnSet.has(key);
                 return { ...v, isDevDependency, type: VulnerabilityType.DEPENDENCY };
             });
+            await this.updateProgress(scan, 40, 'Dependency audit completed');
 
             // Run Docker Scan
             const dockerVulns = await this.scanDocker(scan.project.repositoryUrl, scan.project.branch, user.accessToken);
             vulnerabilities.push(...dockerVulns);
+            await this.updateProgress(scan, 60, 'Docker scan completed');
 
             // Run Secret Scan
             const secretVulns = await this.scanSecrets(scan.project.repositoryUrl, scan.project.branch, user.accessToken);
             vulnerabilities.push(...secretVulns);
+            await this.updateProgress(scan, 70, 'Secret scan completed');
 
             // Fetch whitelist rules
             const whitelistRules = await this.whitelistService.findAllByProject(scan.project.id);
+
+            // Enrich vulnerabilities with EPSS scores
+            this.logger.log(`Fetching EPSS scores for ${vulnerabilities.length} vulnerabilities...`);
+
+            // Extract CVEs and GHSA IDs
+            const cves = vulnerabilities
+                .filter(v => v.cve)
+                .map(v => v.cve);
+
+            if (cves.length > 0) {
+                try {
+                    // Convert GHSA IDs to CVEs
+                    const ghsaIds = cves.filter(cve => cve.startsWith('GHSA-'));
+                    const realCves = cves.filter(cve => cve.startsWith('CVE-'));
+
+                    this.logger.log(`Found ${ghsaIds.length} GHSA IDs and ${realCves.length} CVEs`);
+
+                    // Convert GHSA to CVE using GitHub API
+                    let ghsaToCveMap = new Map<string, string>();
+                    if (ghsaIds.length > 0) {
+                        this.logger.log(`Converting ${ghsaIds.length} GHSA IDs to CVEs...`);
+                        ghsaToCveMap = await this.githubService.getCvesFromGhsas(ghsaIds, user.accessToken);
+                        this.logger.log(`Successfully converted ${ghsaToCveMap.size} GHSA IDs to CVEs`);
+                    }
+
+                    // Update vulnerabilities with real CVEs
+                    vulnerabilities.forEach(vuln => {
+                        if (vuln.cve && vuln.cve.startsWith('GHSA-')) {
+                            const realCve = ghsaToCveMap.get(vuln.cve);
+                            if (realCve) {
+                                vuln.cve = realCve;
+                            }
+                        }
+                    });
+
+                    // Now fetch EPSS scores with real CVEs
+                    const finalCves = vulnerabilities
+                        .filter(v => v.cve && v.cve.startsWith('CVE-'))
+                        .map(v => v.cve);
+
+                    if (finalCves.length > 0) {
+                        this.logger.log(`Fetching EPSS scores for ${finalCves.length} CVEs...`);
+                        const epssScores = await this.epssService.getCachedOrFetch(finalCves);
+                        this.logger.log(`Successfully fetched ${epssScores.size} EPSS scores`);
+
+                        vulnerabilities.forEach(vuln => {
+                            if (vuln.cve && epssScores.has(vuln.cve)) {
+                                const epss = epssScores.get(vuln.cve);
+                                vuln.epssScore = epss.epss;
+                                vuln.epssPercentile = epss.percentile;
+                            }
+                        });
+                    }
+                } catch (epssError) {
+                    this.logger.warn(`Failed to fetch EPSS scores: ${epssError.message}`);
+                    // Continue without EPSS scores - graceful degradation
+                }
+            }
+            await this.updateProgress(scan, 85, 'EPSS enrichment completed');
 
             for (const vuln of vulnerabilities) {
                 const isWhitelisted = whitelistRules.some(rule => {
@@ -179,6 +245,7 @@ export class ScanProcessor {
                 });
                 await this.vulnerabilitiesRepository.save(vulnerability);
             }
+            await this.updateProgress(scan, 95, 'Saving vulnerabilities...');
 
             // Calculate score
             const activeVulnerabilities = await this.vulnerabilitiesRepository.find({
@@ -190,6 +257,7 @@ export class ScanProcessor {
             scan.status = ScanStatus.COMPLETED;
             scan.vulnerabilitiesCount = activeVulnerabilities.length;
             scan.score = score;
+            scan.progress = 100;
             scan.completedAt = new Date();
             await this.scansRepository.save(scan);
 
@@ -262,6 +330,12 @@ export class ScanProcessor {
         }
     }
 
+    private async updateProgress(scan: Scan, progress: number, message?: string) {
+        scan.progress = progress;
+        await this.scansRepository.save(scan);
+        this.logger.log(`Scan ${scan.id} progress: ${progress}%${message ? ` - ${message}` : ''}`);
+    }
+
     private getLockfilename(pm: string): string {
         if (pm === 'yarn') return 'yarn.lock';
         if (pm === 'pnpm') return 'pnpm-lock.yaml';
@@ -323,15 +397,53 @@ export class ScanProcessor {
                 const advisories = result.vulnerabilities || {};
                 for (const [packageName, data] of Object.entries(advisories as any)) {
                     const vulnData = data as any;
-                    vulnerabilities.push({
-                        packageName,
-                        version: vulnData.range || 'unknown',
-                        severity: this.mapSeverity(vulnData.severity),
-                        title: vulnData.title || 'Vulnerability found',
-                        description: vulnData.overview || '',
-                        cve: vulnData.cves?.[0] || null,
-                        url: vulnData.url || null,
-                    });
+
+                    // npm audit v2 format: vulnerabilities are in the 'via' array
+                    if (vulnData.via && Array.isArray(vulnData.via)) {
+                        for (const viaItem of vulnData.via) {
+                            // Skip if via item is just a string (dependency name)
+                            if (typeof viaItem === 'string') continue;
+
+                            // Extract CVE from GitHub Advisory URL or use source as fallback
+                            let cve = null;
+                            if (viaItem.url) {
+                                // Try to extract CVE from the advisory page
+                                // GitHub advisories often have CVE in the URL or we can use the GHSA ID
+                                const ghsaMatch = viaItem.url.match(/GHSA-[\w-]+/);
+                                if (ghsaMatch) {
+                                    // Use GHSA ID as CVE identifier for EPSS lookup
+                                    // Note: EPSS API uses CVE format, so we'll need to handle this
+                                    cve = ghsaMatch[0];
+                                }
+                            }
+
+                            // If we have a source ID, we can try to use it
+                            if (!cve && viaItem.source) {
+                                cve = `GHSA-${viaItem.source}`;
+                            }
+
+                            vulnerabilities.push({
+                                packageName,
+                                version: vulnData.range || 'unknown',
+                                severity: this.mapSeverity(viaItem.severity || vulnData.severity),
+                                title: viaItem.title || 'Vulnerability found',
+                                description: viaItem.title || '',
+                                cve: cve,
+                                url: viaItem.url || null,
+                            });
+                        }
+                    } else {
+                        // Fallback for old format or if via is not present
+                        vulnerabilities.push({
+                            packageName,
+                            version: vulnData.range || 'unknown',
+                            severity: this.mapSeverity(vulnData.severity),
+                            title: vulnData.title || 'Vulnerability found',
+                            description: vulnData.overview || '',
+                            cve: vulnData.cves?.[0] || null,
+                            url: vulnData.url || null,
+                        });
+                    }
                 }
             }
             return vulnerabilities;

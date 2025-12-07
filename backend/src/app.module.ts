@@ -17,6 +17,8 @@ import configuration from './config/configuration';
 
 import { AuditModule } from './audit/audit.module';
 import { WebhooksModule } from './webhooks/webhooks.module';
+import { RedisModule } from './redis/redis.module';
+import { EpssModule } from './epss/epss.module';
 
 @Module({
   imports: [
@@ -36,6 +38,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
       }),
       inject: [ConfigService],
     }),
+    RedisModule,
     DatabaseModule,
     UsersModule,
     AuthModule,
@@ -46,6 +49,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
     ReportsModule,
     AuditModule,
     WebhooksModule,
+    EpssModule,
   ],
   controllers: [AppController],
   providers: [AppService],
