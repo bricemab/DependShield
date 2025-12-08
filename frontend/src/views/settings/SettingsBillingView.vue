@@ -9,8 +9,14 @@ import Button from '@/components/ui/button/Button.vue';
 import { Badge } from '@/components/ui/badge';
 import { useAuthStore } from '../../stores/auth';
 import api from '../../lib/axios';
-import { Loader2 } from 'lucide-vue-next';
+import { Loader2, Download } from 'lucide-vue-next';
 import { toast } from 'vue-sonner';
+import Table from '@/components/ui/Table.vue';
+import TableBody from '@/components/ui/TableBody.vue';
+import TableCell from '@/components/ui/TableCell.vue';
+import TableHead from '@/components/ui/TableHead.vue';
+import TableHeader from '@/components/ui/TableHeader.vue';
+import TableRow from '@/components/ui/TableRow.vue';
 
 const authStore = useAuthStore();
 const isLoadingCheckout = ref(false);
@@ -57,6 +63,35 @@ const manageSubscription = async () => {
         isLoadingPortal.value = false;
     }
 }
+
+const invoices = ref<any[]>([]);
+const isLoadingInvoices = ref(false);
+
+const fetchInvoices = async () => {
+    if (!authStore.activeOrganizationId) return;
+    isLoadingInvoices.value = true;
+    try {
+        const res = await api.get('/billing/invoices', {
+            params: { organizationId: authStore.activeOrganizationId }
+        });
+        invoices.value = res.data;
+    } catch (e) {
+        // Silent error or toast? Silent for now as it might just be 403 or empty
+        console.error('Failed to fetch invoices', e);
+    } finally {
+        isLoadingInvoices.value = false;
+    }
+};
+
+import { onMounted, watch } from 'vue';
+
+onMounted(() => {
+    fetchInvoices();
+});
+
+watch(() => authStore.activeOrganizationId, () => {
+    fetchInvoices();
+});
 </script>
 
 <template>
@@ -113,8 +148,46 @@ const manageSubscription = async () => {
             <CardTitle>Invoices</CardTitle>
             <CardDescription>History of your payments.</CardDescription>
         </CardHeader>
-        <CardContent>
-             <div class="text-sm text-muted-foreground text-center py-4">No invoices found.</div>
+        <CardContent class="p-0">
+             <div v-if="isLoadingInvoices" class="flex justify-center py-8">
+                <Loader2 class="w-6 h-6 animate-spin text-muted-foreground" />
+             </div>
+             
+             <Table v-else-if="invoices.length > 0">
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Amount</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead class="text-right">Actions</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    <TableRow v-for="invoice in invoices" :key="invoice.id">
+                        <TableCell class="font-medium">
+                            {{ new Date(invoice.created * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' }) }}
+                        </TableCell>
+                        <TableCell>
+                            {{ (invoice.total / 100).toLocaleString('en-US', { style: 'currency', currency: invoice.currency.toUpperCase() }) }}
+                        </TableCell>
+                        <TableCell>
+                            <Badge :variant="invoice.status === 'paid' ? 'default' : 'destructive'" class="capitalize">
+                                {{ invoice.status }}
+                            </Badge>
+                        </TableCell>
+                        <TableCell class="text-right">
+                            <a v-if="invoice.hosted_invoice_url" :href="invoice.hosted_invoice_url" target="_blank" class="inline-flex items-center text-sm font-medium text-primary hover:underline hover:text-primary/80 transition-colors">
+                                <Download class="w-4 h-4 mr-2" />
+                                Download PDF
+                            </a>
+                        </TableCell>
+                    </TableRow>
+                </TableBody>
+             </Table>
+
+             <div v-else class="text-sm text-muted-foreground text-center py-8">
+                No invoices found for this organization.
+             </div>
         </CardContent>
     </Card>
   </div>

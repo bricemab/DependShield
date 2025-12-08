@@ -19,6 +19,37 @@ export class BillingController {
         private usersService: UsersService,
     ) { }
 
+    private async ensureStripeCustomer(org: Organization, userId: number): Promise<string> {
+        if (org.stripeCustomerId) {
+            return org.stripeCustomerId;
+        }
+
+        const user = await this.usersService.findOne(userId);
+        // Use user's email or fallback to generated one
+        // Note: Logic here prioritizes finding ANY existing customer with that email in Stripe
+        // to avoid duplicates if DB was reset but Stripe wasn't.
+        const email = user.email || `org_${org.id}_admin@dependshield.com`;
+
+        let customerId: string;
+        const existingCustomer = await this.stripeService.findCustomerByEmail(email);
+
+        if (existingCustomer) {
+            customerId = existingCustomer.id;
+        } else {
+            const customer = await this.stripeService.createCustomer(
+                email,
+                org.name
+            );
+            customerId = customer.id;
+        }
+
+        // Save linkage
+        org.stripeCustomerId = customerId;
+        await this.organizationsRepository.save(org);
+
+        return customerId;
+    }
+
     @Post('checkout')
     @UseGuards(JwtAuthGuard)
     async createCheckoutSession(@Body() body: { plan: string, organizationId: number }, @Req() req) {
@@ -48,25 +79,7 @@ export class BillingController {
             throw new ForbiddenException('Only the organization owner can manage billing.');
         }
 
-        let customerId = org.stripeCustomerId;
-        if (!customerId) {
-            const user = await this.usersService.findOne(userId);
-            const email = user.email || `org_${organizationId}_admin@dependshield.com`;
-
-            const existingCustomer = await this.stripeService.findCustomerByEmail(email);
-
-            if (existingCustomer) {
-                customerId = existingCustomer.id;
-            } else {
-                const customer = await this.stripeService.createCustomer(
-                    email,
-                    org.name
-                );
-                customerId = customer.id;
-            }
-            org.stripeCustomerId = customerId;
-            await this.organizationsRepository.save(org);
-        }
+        const customerId = await this.ensureStripeCustomer(org, userId);
 
         const session = await this.stripeService.createCheckoutSession(
             customerId,
@@ -98,28 +111,10 @@ export class BillingController {
             throw new ForbiddenException('Only the organization owner can manage billing.');
         }
 
-        if (!org.stripeCustomerId) {
-            const user = await this.usersService.findOne(userId);
-            const email = user.email || `org_${organizationId}_admin@dependshield.com`;
-
-            // Check if exists in Stripe first
-            const existingCustomer = await this.stripeService.findCustomerByEmail(email);
-
-            if (existingCustomer) {
-                org.stripeCustomerId = existingCustomer.id;
-            } else {
-                // Create customer
-                const customer = await this.stripeService.createCustomer(
-                    email,
-                    org.name
-                );
-                org.stripeCustomerId = customer.id;
-            }
-            await this.organizationsRepository.save(org);
-        }
+        const customerId = await this.ensureStripeCustomer(org, userId);
 
         const session = await this.stripeService.createPortalSession(
-            org.stripeCustomerId,
+            customerId,
             `${process.env.FRONTEND_URL}/settings/billing`
         );
 
@@ -172,19 +167,59 @@ export class BillingController {
 
             case 'customer.subscription.deleted':
                 console.log(`[Webhook] Subscription deleted for customer ${dataObject.customer}`);
-                // Implementation...
+                const orgDeleted = await this.organizationsRepository.findOne({ where: { stripeCustomerId: dataObject.customer } });
+                if (orgDeleted) {
+                    orgDeleted.plan = 'STARTER' as any;
+                    orgDeleted.subscriptionStatus = 'canceled';
+                    orgDeleted.subscriptionId = null;
+                    await this.organizationsRepository.save(orgDeleted);
+                    console.log(`[Webhook] Downgraded Org ${orgDeleted.id} to STARTER.`);
+                }
                 break;
 
             case 'customer.subscription.updated':
-                console.log(`[Webhook] Subscription updated for customer ${dataObject.customer}.Status: ${dataObject.status} `);
-                // Implementation...
+                console.log(`[Webhook] Subscription updated for customer ${dataObject.customer}. Status: ${dataObject.status}`);
+                const orgUpdated = await this.organizationsRepository.findOne({ where: { stripeCustomerId: dataObject.customer } });
+                if (orgUpdated) {
+                    orgUpdated.subscriptionStatus = dataObject.status;
+                    // Optionally check for plan changes if you support multiple paid tiers
+                    await this.organizationsRepository.save(orgUpdated);
+                    console.log(`[Webhook] Updated subscription status for Org ${orgUpdated.id} to ${dataObject.status}`);
+                }
                 break;
 
             default:
-                console.log(`[Webhook] Unhandled event type ${event.type
-                    }`);
+                console.log(`[Webhook] Unhandled event type ${event.type}`);
         }
 
         return { received: true };
+    }
+
+    @Get('invoices')
+    @UseGuards(JwtAuthGuard)
+    async getInvoices(@Query('organizationId') organizationId: number, @Req() req) {
+        console.log(`[Billing] Get Invoices for Org ${organizationId}`);
+        if (!organizationId) throw new BadRequestException('Organization ID is required');
+
+        const org = await this.organizationsRepository.findOne({ where: { id: organizationId } });
+        if (!org) throw new BadRequestException('Organization not found');
+
+        const userId = req.user.userId;
+        console.log(`[Billing] User ${userId} requesting invoices for Org ${org.id} (Owner: ${org.ownerId})`);
+
+        // Check permission (Owner only for now to match other billing logic)
+        if (org.ownerId && org.ownerId !== userId) {
+            throw new ForbiddenException('Only the organization owner can view invoices.');
+        }
+
+        // Logic refined: ensureStripeCustomer will now FIND the customer if it exists in Stripe
+        // even if it's not yet saved in the DB.
+        const customerId = await this.ensureStripeCustomer(org, userId);
+        console.log(`[Billing] Resolved Stripe Customer ID: ${customerId}`);
+
+        console.log(`[Billing] Fetching invoices for Customer ${customerId}`);
+        const invoices = await this.stripeService.getInvoices(customerId);
+        console.log(`[Billing] Found ${invoices.length} invoices`);
+        return invoices;
     }
 }
