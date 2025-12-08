@@ -227,7 +227,7 @@ onMounted(() => {
                  </CardTitle>
                  <CardDescription>Receive notifications for events across all projects in this organization.</CardDescription>
             </div>
-             <Button size="sm" variant="outline" :disabled="authStore.user?.plan === 'STARTER'" @click="showNewWebhookDialog = true">
+             <Button size="sm" variant="outline" :disabled="authStore.activeOrganization?.plan === 'STARTER'" @click="showNewWebhookDialog = true">
                 <Plus class="w-4 h-4 mr-2" />
                 Add Webhook
             </Button>
@@ -253,7 +253,7 @@ onMounted(() => {
         </div>
       </CardHeader>
       <CardContent>
-         <div v-if="authStore.user?.plan === 'STARTER'" class="bg-muted p-4 rounded-lg text-center space-y-2 border border-dashed">
+         <div v-if="authStore.activeOrganization?.plan === 'STARTER'" class="bg-muted p-4 rounded-lg text-center space-y-2 border border-dashed">
              <p class="text-sm font-medium">Available on PRO & Enterprise</p>
              <p class="text-xs text-muted-foreground">Global webhooks allow you to centrally manage notifications.</p>
              <Button size="sm" variant="secondary" class="mt-2 h-7" disabled>Upgrade Plan (Coming Soon)</Button>

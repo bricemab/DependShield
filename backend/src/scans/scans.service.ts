@@ -12,7 +12,7 @@ import { Queue } from 'bull';
 import { ConfigService } from '@nestjs/config';
 import { Scan, ScanStatus } from './scan.entity';
 import { ProjectsService } from '../projects/projects.service';
-import { UserPlan } from '../users/user.entity';
+import { PlanType } from '../organizations/organization.entity';
 import { AuditService } from '../audit/audit.service';
 
 @Injectable()
@@ -45,13 +45,13 @@ export class ScansService {
     this.logger.log(`Project verified`);
 
     // Rate Limiting Check
-    const user = await this.projectsService.getUserByProjectId(projectId);
-    const userPlan = user?.plan || UserPlan.STARTER;
-    this.logger.log(`Project Owner: ${user?.id}, Plan: ${userPlan}`);
+    const projectEntity = await this.projectsService.findOneById(projectId);
+    const plan = projectEntity.organization?.plan || PlanType.STARTER;
+    this.logger.log(`Project Organization: ${projectEntity.organization?.name}, Plan: ${plan}`);
 
-    if (userPlan !== UserPlan.ENTERPRISE) {
+    if (plan !== PlanType.ENTERPRISE) {
       let cooldownMinutes = 60; // STARTER default
-      if (userPlan === UserPlan.PRO) {
+      if (plan === PlanType.PRO) {
         cooldownMinutes = 1; // Reduced for testing convenience
       }
 
@@ -68,11 +68,12 @@ export class ScansService {
         if (diffMinutes < cooldownMinutes) {
           const remaining = Math.ceil(cooldownMinutes - diffMinutes);
           throw new BadRequestException(
-            `Rate limit exceeded for ${userPlan} plan. Please wait ${remaining} minutes before scanning again.`,
+            `Rate limit exceeded for ${plan} plan. Please wait ${remaining} minutes before scanning again.`,
           );
         }
       }
     }
+
 
     // Calculate sequential scan number
     const lastScanNumber = await this.scansRepository.findOne({
@@ -92,8 +93,8 @@ export class ScansService {
 
     // Priority Logic: ENTERPRISE (1) > PRO (5) > STARTER (10)
     let priority = 10;
-    if (userPlan === UserPlan.ENTERPRISE) priority = 1;
-    else if (userPlan === UserPlan.PRO) priority = 5;
+    if (plan === PlanType.ENTERPRISE) priority = 1;
+    else if (plan === PlanType.PRO) priority = 5;
 
     // Add to queue with priority
     await this.scansQueue.add(

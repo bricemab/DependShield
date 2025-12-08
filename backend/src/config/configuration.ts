@@ -39,4 +39,9 @@ export default () => ({
     cacheTtl: parseInt(process.env.EPSS_CACHE_TTL, 10) || 86400, // 24 hours
     batchSize: parseInt(process.env.EPSS_BATCH_SIZE, 10) || 100,
   },
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY,
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    priceIdPro: process.env.STRIPE_PRICE_ID_PRO,
+  },
 });

@@ -41,11 +41,11 @@ const branchSearchQuery = ref('');
 
 // Plan limits
 const canUsePrivateRepos = computed(() => {
-    return authStore.user?.plan === 'PRO' || authStore.user?.plan === 'ENTERPRISE';
+    return authStore.activeOrganization?.plan === 'PRO' || authStore.activeOrganization?.plan === 'ENTERPRISE';
 });
 
 const canEnableEmail = computed(() => {
-    return authStore.user?.plan === 'PRO' || authStore.user?.plan === 'ENTERPRISE';
+    return authStore.activeOrganization?.plan === 'PRO' || authStore.activeOrganization?.plan === 'ENTERPRISE';
 });
 
 

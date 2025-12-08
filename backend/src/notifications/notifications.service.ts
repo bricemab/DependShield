@@ -39,7 +39,7 @@ export class NotificationsService {
         <body>
           <div class="container">
             <div class="header">
-              <img src="${process.env.FRONTEND_URL}/logo.png" alt="DependShield Logo" style="height: 40px; margin-bottom: 10px;">
+              <img src="${process.env.FRONTEND_URL}/logo-full.svg" alt="DependShield Logo" style="height: 40px; margin-bottom: 10px;">
               <h1>DependShield</h1>
               <p>Security Scan Report</p>
             </div>
@@ -134,7 +134,7 @@ export class NotificationsService {
         <body>
           <div class="container">
             <div class="header">
-              <img src="${process.env.FRONTEND_URL}/logo.png" alt="DependShield Logo" style="height: 40px; margin-bottom: 10px;">
+              <img src="${process.env.FRONTEND_URL}/logo-full.svg" alt="DependShield Logo" style="height: 40px; margin-bottom: 10px;">
               <h1>DependShield</h1>
               <p>Welcome Aboard!</p>
             </div>
@@ -200,7 +200,7 @@ export class NotificationsService {
         <body>
           <div class="container">
             <div class="header">
-              <img src="${process.env.FRONTEND_URL}/logo.png" alt="DependShield Logo" style="height: 40px; margin-bottom: 10px;">
+              <img src="${process.env.FRONTEND_URL}/logo-full.svg" alt="DependShield Logo" style="height: 40px; margin-bottom: 10px;">
               <h1>DependShield</h1>
               <p>Invitation to Collaborate</p>
             </div>

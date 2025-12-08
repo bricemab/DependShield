@@ -14,6 +14,7 @@ export interface Scan {
     score: number;
     progress: number;
     dependencyGraph?: any;
+    project?: any;
     startedAt: string;
     completedAt?: string;
     vulnerabilities?: Vulnerability[];

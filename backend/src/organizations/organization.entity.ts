@@ -25,6 +25,9 @@ export class Organization {
     @Column()
     name: string;
 
+    @Column({ nullable: true })
+    ownerId: number;
+
     @Column({
         type: 'enum',
         enum: PlanType,
@@ -42,6 +45,19 @@ export class Organization {
 
     // @OneToMany(() => Project, (project) => project.organization)
     // projects: Project[];
+
+    // Stripe Billing
+    @Column({ nullable: true, select: false }) // Hide customer ID from partial API responses if not needed
+    stripeCustomerId: string;
+
+    @Column({ nullable: true })
+    subscriptionId: string;
+
+    @Column({ default: 'active' }) // active, past_due, canceled, incomplete
+    subscriptionStatus: string;
+
+    @Column({ nullable: true, type: 'date' })
+    subscriptionEndsAt: Date;
 
     @CreateDateColumn()
     createdAt: Date;

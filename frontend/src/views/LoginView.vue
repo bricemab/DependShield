@@ -15,7 +15,7 @@ const handleLogin = () => {
     </div>
     <div class="w-full max-w-md">
       <div class="text-center mb-8">
-        <img src="/logo.png" alt="DependShield" class="h-20 mb-4 object-contain mx-auto transition-transform hover:scale-105" />
+        <img src="/logo-full.svg" alt="DependShield" class="h-20 mb-4 object-contain mx-auto transition-transform hover:scale-105" />
         <p class="text-muted-foreground">Vulnerability Scanner for Node.js Projects</p>
       </div>
 

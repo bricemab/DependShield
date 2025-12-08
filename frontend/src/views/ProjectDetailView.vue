@@ -915,7 +915,7 @@ onMounted(async () => {
       <!-- Tab Content: Webhooks -->
       <!-- Tab Content: Webhooks -->
       <div v-show="activeTab === 'webhooks'" class="space-y-6">
-        <div v-if="authStore.user?.plan !== 'PRO' && authStore.user?.plan !== 'ENTERPRISE'" class="flex flex-col items-center justify-center py-12 bg-muted/30 rounded-lg border border-dashed">
+        <div v-if="authStore.activeOrganization?.plan !== 'PRO' && authStore.activeOrganization?.plan !== 'ENTERPRISE'" class="flex flex-col items-center justify-center py-12 bg-muted/30 rounded-lg border border-dashed">
              <div class="bg-primary/10 p-4 rounded-full mb-4">
                  <Lock class="w-8 h-8 text-primary" />
              </div>

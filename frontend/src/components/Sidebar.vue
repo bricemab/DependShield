@@ -48,7 +48,7 @@ const getPlanColor = (plan: string) => {
     <!-- Logo -->
     <div class="p-6 border-b">
       <div class="flex flex-col items-center justify-center text-center">
-        <img src="/logo.png" alt="DependShield" class="h-12 mb-2" />
+        <img src="/logo-full.svg" alt="DependShield" class="h-12 mb-2" />
         <p class="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Vulnerability Scanner</p>
       </div>
     </div>

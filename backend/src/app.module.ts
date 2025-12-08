@@ -24,6 +24,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { RemediationModule } from './remediation/remediation.module';
 import { InvitationsModule } from './invitations/invitations.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
+import { BillingModule } from './billing/billing.module';
 
 @Module({
   imports: [
@@ -62,6 +63,7 @@ import { ApiKeysModule } from './api-keys/api-keys.module';
     OrganizationsModule,
     InvitationsModule,
     ApiKeysModule,
+    BillingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -9,7 +9,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WhitelistRule } from './whitelist-rule.entity';
 import { ProjectsService } from '../projects/projects.service';
-import { UserPlan } from '../users/user.entity';
+import { PlanType } from '../organizations/organization.entity';
 
 @Injectable()
 export class WhitelistService {
@@ -18,7 +18,7 @@ export class WhitelistService {
     private whitelistRepository: Repository<WhitelistRule>,
     @Inject(forwardRef(() => ProjectsService))
     private projectsService: ProjectsService,
-  ) {}
+  ) { }
 
   async findAllByProject(projectId: number): Promise<WhitelistRule[]> {
     return this.whitelistRepository.find({ where: { projectId } });
@@ -30,9 +30,9 @@ export class WhitelistService {
   ): Promise<WhitelistRule> {
     // SaaS Check
     const project = await this.projectsService.findOneById(projectId);
-    const userPlan = project.user?.plan || UserPlan.STARTER;
+    const plan = project.organization?.plan || PlanType.STARTER;
 
-    if (userPlan === UserPlan.STARTER) {
+    if (plan === PlanType.STARTER) {
       throw new BadRequestException(
         'Whitelist management is only available on PRO and ENTERPRISE plans.',
       );
@@ -48,9 +48,9 @@ export class WhitelistService {
   async remove(id: number, projectId: number): Promise<void> {
     // SaaS Check
     const project = await this.projectsService.findOneById(projectId);
-    const userPlan = project.user?.plan || UserPlan.STARTER;
+    const plan = project.organization?.plan || PlanType.STARTER;
 
-    if (userPlan === UserPlan.STARTER) {
+    if (plan === PlanType.STARTER) {
       throw new BadRequestException(
         'Whitelist management is only available on PRO and ENTERPRISE plans.',
       );

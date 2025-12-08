@@ -17,7 +17,7 @@ const scanStore = useScanStore();
 const authStore = useAuthStore();
 
 const canManageWhitelist = computed(() => {
-    return authStore.user?.plan === 'PRO' || authStore.user?.plan === 'ENTERPRISE';
+    return authStore.activeOrganization?.plan === 'PRO' || authStore.activeOrganization?.plan === 'ENTERPRISE';
 });
 
 const scanId = computed(() => parseInt(route.params.id as string));

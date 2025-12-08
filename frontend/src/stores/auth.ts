@@ -8,7 +8,7 @@ interface User {
     username: string;
     email: string;
     avatarUrl: string;
-    plan: 'STARTER' | 'PRO' | 'ENTERPRISE';
+
     role?: string;
     isOnboarded?: boolean;
     settings?: {

@@ -8,12 +8,6 @@ import {
 } from 'typeorm';
 import { Organization } from '../organizations/organization.entity';
 
-export enum UserPlan {
-  STARTER = 'STARTER',
-  PRO = 'PRO',
-  ENTERPRISE = 'ENTERPRISE',
-}
-
 export enum UserRole {
   DEVELOPER = 'DEVELOPER',
   CTO = 'CTO',
@@ -56,12 +50,7 @@ export class User {
   @Column({ nullable: true })
   avatarUrl: string;
 
-  @Column({
-    type: 'enum',
-    enum: UserPlan,
-    default: UserPlan.STARTER,
-  })
-  plan: UserPlan;
+
 
   @Column({ type: 'simple-json', nullable: true })
   settings: {

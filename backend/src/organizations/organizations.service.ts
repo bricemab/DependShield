@@ -16,6 +16,7 @@ export class OrganizationsService {
         const org = this.organizationsRepository.create({
             name: orgName,
             users: [user],
+            ownerId: user.id
         });
         return this.organizationsRepository.save(org);
     }
