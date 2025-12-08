@@ -23,6 +23,7 @@ import { EpssModule } from './epss/epss.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { RemediationModule } from './remediation/remediation.module';
 import { InvitationsModule } from './invitations/invitations.module';
+import { ApiKeysModule } from './api-keys/api-keys.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { InvitationsModule } from './invitations/invitations.module';
     RemediationModule,
     OrganizationsModule,
     InvitationsModule,
+    ApiKeysModule,
   ],
   controllers: [AppController],
   providers: [AppService],

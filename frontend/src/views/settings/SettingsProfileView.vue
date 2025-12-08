@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, watch, computed } from 'vue';
 import { useAuthStore } from '../../stores/auth';
 import { useI18n } from 'vue-i18n';
 import Card from '../../components/ui/Card.vue';
@@ -9,13 +9,32 @@ import CardDescription from '../../components/ui/CardDescription.vue';
 import CardContent from '../../components/ui/CardContent.vue';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-vue-next';
 import api from '../../lib/axios';
+import { toast } from 'vue-sonner';
 
 const authStore = useAuthStore();
 const { locale } = useI18n();
-const user = authStore.user;
+const user = computed(() => authStore.user); // Make user reactive properly
 
-const initials = user?.username?.substring(0, 2).toUpperCase() || 'DS';
+const isSyncing = ref(false);
+
+const syncGithub = async () => {
+    isSyncing.value = true;
+    try {
+        await api.post('/users/me/sync');
+        await authStore.fetchUser();
+        toast.success('Profile synced with GitHub successfully.');
+    } catch (e) {
+        console.error("Failed to sync", e);
+        toast.error('Failed to sync with GitHub.');
+    } finally {
+        isSyncing.value = false;
+    }
+};
+
+const initials = computed(() => user.value?.username?.substring(0, 2).toUpperCase() || 'DS');
 
 const theme = ref(localStorage.getItem('theme') || 'system');
 const language = ref(localStorage.getItem('locale') || 'en');
@@ -32,13 +51,13 @@ const applyTheme = (val: string) => {
 
 // Initial load
 onMounted(() => {
-    if (user?.settings) {
-        if (user.settings.theme) {
-            theme.value = user.settings.theme;
+    if (user.value?.settings) {
+        if (user.value.settings.theme) {
+            theme.value = user.value.settings.theme;
             applyTheme(theme.value);
         }
-        if (user.settings.language) {
-            language.value = user.settings.language;
+        if (user.value.settings.language) {
+            language.value = user.value.settings.language;
             locale.value = language.value;
         }
     }
@@ -56,7 +75,7 @@ const updateSettings = async () => {
             settings: {
                 theme: theme.value,
                 language: language.value,
-                notifications: user?.settings?.notifications || {} // Preserve existing
+                notifications: user.value?.settings?.notifications || {} // Preserve existing
             }
         });
         // Update store logic if needed, ideally re-fetch user
@@ -83,8 +102,16 @@ watch(language, updateSettings);
     <!-- User Identity Card -->
     <Card>
       <CardHeader>
-        <CardTitle>Identity</CardTitle>
-        <CardDescription>Your personal details synced from GitHub.</CardDescription>
+        <div class="flex items-start justify-between">
+            <div>
+                <CardTitle>Identity</CardTitle>
+                <CardDescription>Your personal details synced from GitHub.</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" @click="syncGithub" :disabled="isSyncing">
+                <RefreshCw class="w-4 h-4 mr-2" :class="{ 'animate-spin': isSyncing }" />
+                {{ isSyncing ? 'Syncing...' : 'Sync from GitHub' }}
+            </Button>
+        </div>
       </CardHeader>
       <CardContent class="flex items-center gap-6">
         <div class="h-20 w-20 rounded-full overflow-hidden bg-muted border border-border flex items-center justify-center text-xl font-bold text-muted-foreground relative">
@@ -98,6 +125,9 @@ watch(language, updateSettings);
           <p class="text-sm text-muted-foreground">{{ user?.email }}</p>
           <div class="flex gap-2 mt-2">
              <Badge variant="outline" class="uppercase text-xs" v-if="user?.role">{{ user.role }}</Badge>
+             <Badge variant="secondary" class="text-xs">
+                ID: {{ user?.id }}
+             </Badge>
           </div>
         </div>
       </CardContent>

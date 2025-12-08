@@ -1,23 +1,5 @@
 <script setup lang="ts">
-import { 
-  User, 
-  Building, 
-  CreditCard, 
-  Bell 
-} from 'lucide-vue-next';
-import { useRoute } from 'vue-router';
 import DashboardLayout from './DashboardLayout.vue';
-
-const route = useRoute();
-
-const navigation = [
-  { name: 'My Profile', href: '/settings/profile', icon: User },
-  { name: 'Organization', href: '/settings/organization', icon: Building },
-  { name: 'Billing & Plans', href: '/settings/billing', icon: CreditCard },
-  { name: 'Notifications', href: '/settings/notifications', icon: Bell },
-];
-
-const isActive = (path: string) => route.path === path;
 </script>
 
 <template>

@@ -6,6 +6,7 @@ import {
   CreateDateColumn,
 } from 'typeorm';
 import { Project } from '../projects/project.entity';
+import { Organization } from '../organizations/organization.entity';
 
 export enum WebhookType {
   SLACK = 'SLACK',
@@ -42,11 +43,21 @@ export class Webhook {
 
   @ManyToOne(() => Project, (project) => project.webhooks, {
     onDelete: 'CASCADE',
+    nullable: true,
   })
   project: Project;
 
-  @Column()
+  @Column({ nullable: true })
   projectId: number;
+
+  @ManyToOne(() => Organization, {
+    onDelete: 'CASCADE',
+    nullable: true,
+  })
+  organization: Organization;
+
+  @Column({ nullable: true })
+  organizationId: number;
 
   @CreateDateColumn()
   createdAt: Date;

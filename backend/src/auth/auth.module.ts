@@ -7,8 +7,10 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { GithubStrategy } from './strategies/github.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { ApiKeyStrategy } from './strategies/api-key.strategy';
 import { AuthController } from './auth.controller';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { ApiKeysModule } from '../api-keys/api-keys.module';
 
 @Module({
   imports: [
@@ -16,6 +18,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
     PassportModule,
     NotificationsModule,
     OrganizationsModule,
+    ApiKeysModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -25,7 +28,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
       }),
     }),
   ],
-  providers: [AuthService, GithubStrategy, JwtStrategy],
+  providers: [AuthService, GithubStrategy, JwtStrategy, ApiKeyStrategy],
   controllers: [AuthController],
   exports: [AuthService],
 })

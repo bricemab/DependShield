@@ -70,6 +70,11 @@ const router = createRouter({
                     name: 'settings-notifications',
                     component: () => import('../views/settings/SettingsNotificationsView.vue'),
                 },
+                {
+                    path: 'integrations',
+                    name: 'settings-integrations',
+                    component: () => import('../views/settings/SettingsIntegrationsView.vue'),
+                },
             ],
         },
         {

@@ -27,4 +27,10 @@ export class UsersController {
   async completeOnboarding(@Request() req, @Body() body: any) {
     return this.usersService.completeOnboarding(req.user.userId, body);
   }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('me/sync')
+  async syncGithub(@Request() req) {
+    return this.usersService.syncGithubProfile(req.user.userId);
+  }
 }

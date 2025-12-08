@@ -91,4 +91,39 @@ export class UsersService {
     await this.usersRepository.update(userId, updates);
     return this.findOne(userId);
   }
+
+  async syncGithubProfile(userId: number): Promise<User> {
+    const user = await this.findOne(userId);
+    if (!user || !user.accessToken) {
+      throw new Error('User has no GitHub access token');
+    }
+
+    try {
+      const response = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `token ${user.accessToken}`,
+          'User-Agent': 'DependShield-Backend',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch from GitHub');
+      }
+
+      const profile = await response.json();
+
+      // Update fields
+      user.username = profile.login;
+      user.avatarUrl = profile.avatar_url;
+      // Note: Email might be private, ideally we should fetch /user/emails, but keeping it simple for now or just updating what we get.
+      if (profile.email) {
+        user.email = profile.email;
+      }
+
+      return this.usersRepository.save(user);
+    } catch (error) {
+      console.error('Error syncing with GitHub:', error);
+      throw error;
+    }
+  }
 }

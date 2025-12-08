@@ -11,6 +11,7 @@ import { useAuthStore } from '../../stores/auth';
 import api from '../../lib/axios';
 import { toast } from 'vue-sonner';
 import { Loader2 } from 'lucide-vue-next';
+import { Badge } from '@/components/ui/badge';
 
 const authStore = useAuthStore();
 const router = useRouter();
@@ -201,7 +202,7 @@ onMounted(async () => {
                     <label class="text-sm font-medium">Invite by Email</label>
                     <input 
                         v-model="inviteEmail"
-                        class="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        class="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         placeholder="colleague@company.com"
                         @keyup.enter="sendInvite"
                     />
@@ -228,9 +229,20 @@ onMounted(async () => {
                             </div>
                             <div>
                                 <div class="font-medium text-sm">{{ member.username }}</div>
+                                <div class="text-xs text-muted-foreground">{{ member.email || 'No email' }}</div>
                             </div>
                         </div>
-                        <div class="text-xs text-muted-foreground">Member</div>
+                        <div class="flex items-center gap-4">
+                            <!-- Role Dropdown (Mock) -->
+                            <select class="h-8 w-24 rounded-md border border-input bg-background px-2 py-1 text-xs font-medium focus:ring-2 focus:ring-primary focus:outline-none" disabled>
+                                <option>Admin</option>
+                                <option>Editor</option>
+                                <option>Viewer</option>
+                            </select>
+                            <button class="text-xs text-destructive hover:underline" disabled title="Cannot remove members yet">
+                                Remove
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -257,6 +269,30 @@ onMounted(async () => {
                         </button>
                     </div>
                 </div>
+            </div>
+        </CardContent>
+    </Card>
+
+    <!-- SSO / Security -->
+    <Card>
+        <CardHeader>
+            <div class="flex items-center justify-between">
+                <div>
+                     <CardTitle>Single Sign-On (SSO)</CardTitle>
+                     <CardDescription>Configure SAML or OIDC for your organization.</CardDescription>
+                </div>
+                <Badge variant="outline" class="bg-amber-500/10 text-amber-600 border-amber-200">ENTERPRISE</Badge>
+            </div>
+        </CardHeader>
+        <CardContent>
+            <div class="bg-muted p-4 rounded-lg text-center space-y-2">
+                <p class="text-sm font-medium">Upgrade to Enterprise</p>
+                <p class="text-xs text-muted-foreground max-w-sm mx-auto">
+                    SSO and advanced security controls are available on the Enterprise plan. Contact sales to upgrade your workspace.
+                </p>
+                <button class="mt-2 inline-flex items-center justify-center whitespace-nowrap rounded-md text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-8 px-3">
+                    Contact Sales
+                </button>
             </div>
         </CardContent>
     </Card>

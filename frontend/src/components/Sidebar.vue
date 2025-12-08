@@ -2,7 +2,7 @@
 import { FolderGit2, LayoutDashboard, ShieldAlert, Settings, BookOpen, ChevronDown, Building } from 'lucide-vue-next';
 import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '../stores/auth';
-import { ref, watch, computed } from 'vue';
+import { ref, watch } from 'vue';
 import { onClickOutside } from '@vueuse/core';
 import { Badge } from '@/components/ui/badge';
 
@@ -126,6 +126,7 @@ const getPlanColor = (plan: string) => {
         </router-link>
 
         <!-- Settings (Collapsible) -->
+        <!-- Settings (Collapsible) -->
         <div>
           <button
             @click="isSettingsOpen = !isSettingsOpen"
@@ -170,6 +171,13 @@ const getPlanColor = (plan: string) => {
               active-class="bg-accent text-accent-foreground"
             >
               Notifications
+            </router-link>
+            <router-link
+              to="/settings/integrations"
+              class="flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground"
+              active-class="bg-accent text-accent-foreground"
+            >
+              Integrations
             </router-link>
           </div>
         </div>

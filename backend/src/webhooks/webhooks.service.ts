@@ -32,6 +32,12 @@ export class WebhooksService {
     return this.webhooksRepository.find({ where: { projectId } });
   }
 
+  async findAllByOrganization(organizationId: number): Promise<Webhook[]> {
+    return this.webhooksRepository.find({
+      where: { organizationId },
+    });
+  }
+
   async create(
     projectId: number,
     userId: number,
@@ -53,6 +59,18 @@ export class WebhooksService {
       projectId,
     });
 
+    return this.webhooksRepository.save(webhook);
+  }
+
+  async createForOrganization(
+    organizationId: number,
+    createDto: CreateWebhookDto
+  ): Promise<Webhook> {
+    // Validate Org permissions if needed, assuming Guard handles basic access
+    const webhook = this.webhooksRepository.create({
+      ...createDto,
+      organizationId,
+    });
     return this.webhooksRepository.save(webhook);
   }
 
