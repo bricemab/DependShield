@@ -1,0 +1,2 @@
+- check que les webhooks fonctionnent réellement
+- Finir l'intégration des API keys car actuellement, on peut juste en créer et rien de plus
